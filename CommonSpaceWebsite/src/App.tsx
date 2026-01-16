@@ -1,16 +1,33 @@
-import { useState } from 'react'
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import Login from './pages/Login';
+import Calendar from './pages/Calendar';
+import BulletinBoard from './pages/BulletinBoard';
+import DrawBoard from './pages/DrawBoard';
 
-import './App.css'
-
-function App() {
-
+function AppContent() {
+  const location = useLocation();
+  const isLoginPage = location.pathname === '/';
 
   return (
     <>
-     <p>hej</p>
-     <p>på dig</p>
+      {!isLoginPage && <Navbar />}
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/calendar" element={<Calendar />} />
+        <Route path="/bulletinboard" element={<BulletinBoard />} />
+        <Route path="/drawboard" element={<DrawBoard />} />
+      </Routes>
     </>
-  )
+  );
 }
 
-export default App
+function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
+  );
+}
+
+export default App;
