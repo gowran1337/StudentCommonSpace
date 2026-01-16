@@ -4,6 +4,9 @@ import Login from './pages/Login';
 import Calendar from './pages/Calendar';
 import BulletinBoard from './pages/BulletinBoard';
 import DrawBoard from './pages/DrawBoard';
+import GeneralChat from './pages/GeneralChat';
+import DirectMessages from './pages/DirectMessages';
+import Profile from './pages/Profile';
 
 function AppContent() {
   const location = useLocation();
@@ -17,6 +20,9 @@ function AppContent() {
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/bulletinboard" element={<BulletinBoard />} />
         <Route path="/drawboard" element={<DrawBoard />} />
+        <Route path="/generalchat" element={<GeneralChat />} />
+        <Route path="/directmessages" element={<DirectMessages />} />
+        <Route path="/profile" element={<Profile />} />
       </Routes>
     </>
   );

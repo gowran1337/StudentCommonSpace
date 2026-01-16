@@ -22,7 +22,7 @@ const Navbar = () => {
                                 isActive ? 'text-purple-400 font-medium' : 'text-slate-300 hover:text-purple-400 transition'
                             }
                         >
-                            Calendar
+                            📅 Calendar
                         </NavLink>
                     </li>
                     <li>
@@ -32,7 +32,7 @@ const Navbar = () => {
                                 isActive ? 'text-purple-400 font-medium' : 'text-slate-300 hover:text-purple-400 transition'
                             }
                         >
-                            Bulletin Board
+                            📌 Bulletin Board
                         </NavLink>
                     </li>
                     <li>
@@ -42,7 +42,37 @@ const Navbar = () => {
                                 isActive ? 'text-purple-400 font-medium' : 'text-slate-300 hover:text-purple-400 transition'
                             }
                         >
-                            Draw Board
+                            🎨 Draw Board
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink
+                            to="/generalchat"
+                            className={({ isActive }) =>
+                                isActive ? 'text-purple-400 font-medium' : 'text-slate-300 hover:text-purple-400 transition'
+                            }
+                        >
+                            💬 General Chat
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink
+                            to="/directmessages"
+                            className={({ isActive }) =>
+                                isActive ? 'text-purple-400 font-medium' : 'text-slate-300 hover:text-purple-400 transition'
+                            }
+                        >
+                            📨 Messages
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink
+                            to="/profile"
+                            className={({ isActive }) =>
+                                isActive ? 'text-purple-400 font-medium' : 'text-slate-300 hover:text-purple-400 transition'
+                            }
+                        >
+                            👤 Profile
                         </NavLink>
                     </li>
                     <li>
