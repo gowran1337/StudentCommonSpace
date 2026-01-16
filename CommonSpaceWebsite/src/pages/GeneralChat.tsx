@@ -1,22 +1,32 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface Message {
   id: number;
   user: string;
   text: string;
   timestamp: Date;
+  profilePicture?: string;
 }
 
 function GeneralChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [username, setUsername] = useState('');
+  const [userProfilePic, setUserProfilePic] = useState('😀');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Load username from localStorage
+    // Load username and profile from localStorage
     const savedUsername = localStorage.getItem('username') || 'Anonymous';
     setUsername(savedUsername);
+    
+    const profileSettings = localStorage.getItem('profileSettings');
+    if (profileSettings) {
+      const settings = JSON.parse(profileSettings);
+      setUserProfilePic(settings.profilePicture || '😀');
+    }
 
     // Load messages from localStorage
     const savedMessages = localStorage.getItem('generalChatMessages');
@@ -47,11 +57,18 @@ function GeneralChat() {
         id: Date.now(),
         user: username,
         text: newMessage.trim(),
-        timestamp: new Date()
+        timestamp: new Date(),
+        profilePicture: userProfilePic
       };
       setMessages([...messages, message]);
       setNewMessage('');
     }
+  };
+
+  const deleteMessage = (messageId: number) => {
+    const updatedMessages = messages.filter(msg => msg.id !== messageId);
+    setMessages(updatedMessages);
+    localStorage.setItem('generalChatMessages', JSON.stringify(updatedMessages));
   };
 
   const formatTime = (date: Date) => {
@@ -80,18 +97,58 @@ function GeneralChat() {
               key={msg.id}
               className={`flex ${msg.user === username ? 'justify-end' : 'justify-start'}`}
             >
-              <div
-                className={`max-w-md px-4 py-2 rounded-lg ${
-                  msg.user === username
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-slate-700 text-slate-100'
-                }`}
-              >
-                <div className="flex items-baseline gap-2 mb-1">
-                  <span className="font-semibold text-sm">{msg.user}</span>
-                  <span className="text-xs opacity-70">{formatTime(msg.timestamp)}</span>
+              <div className="flex items-start gap-2 max-w-md">
+                {msg.user !== username && (
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('dmTarget', msg.user);
+                      navigate('/directmessages');
+                    }}
+                    className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl flex-shrink-0 hover:scale-110 transition-transform cursor-pointer"
+                    title={`Chatta med ${msg.user}`}
+                  >
+                    {msg.profilePicture || '😀'}
+                  </button>
+                )}
+                <div
+                  className={`px-4 py-2 rounded-lg relative group ${
+                    msg.user === username
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-slate-700 text-slate-100'
+                  }`}
+                >
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <button
+                      onClick={() => {
+                        if (msg.user !== username) {
+                          localStorage.setItem('dmTarget', msg.user);
+                          navigate('/directmessages');
+                        }
+                      }}
+                      className={`font-semibold text-sm ${
+                        msg.user !== username ? 'hover:underline cursor-pointer' : ''
+                      }`}
+                    >
+                      {msg.user}
+                    </button>
+                    <span className="text-xs opacity-70">{formatTime(msg.timestamp)}</span>
+                  </div>
+                  <p className="break-words">{msg.text}</p>
+                  {msg.user === username && (
+                    <button
+                      onClick={() => deleteMessage(msg.id)}
+                      className="absolute -top-2 -right-2 bg-red-600 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold"
+                      title="Ta bort meddelande"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
-                <p className="break-words">{msg.text}</p>
+                {msg.user === username && (
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl flex-shrink-0">
+                    {msg.profilePicture || '😀'}
+                  </div>
+                )}
               </div>
             </div>
           ))

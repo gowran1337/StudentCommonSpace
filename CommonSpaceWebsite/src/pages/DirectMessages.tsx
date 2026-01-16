@@ -10,17 +10,18 @@ interface Message {
 
 interface Contact {
   name: string;
+  profilePicture: string;
   lastMessage?: string;
   unread?: number;
 }
 
+interface User {
+  username: string;
+  profilePicture: string;
+}
+
 function DirectMessages() {
-  const [contacts] = useState<Contact[]>([
-    { name: 'Anna', lastMessage: 'Hej! Hur mår du?', unread: 2 },
-    { name: 'Erik', lastMessage: 'Ses imorgon!' },
-    { name: 'Sara', lastMessage: 'Tack för hjälpen!', unread: 1 },
-    { name: 'Johan', lastMessage: 'Okej, låter bra!' },
-  ]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContact, setSelectedContact] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -30,6 +31,27 @@ function DirectMessages() {
   useEffect(() => {
     const savedUsername = localStorage.getItem('username') || 'You';
     setUsername(savedUsername);
+
+    // Load all registered users as potential contacts
+    const usersJson = localStorage.getItem('users');
+    const users: User[] = usersJson ? JSON.parse(usersJson) : [];
+    
+    // Filter out current user and create contact list
+    const contactsList = users
+      .filter(u => u.username !== savedUsername)
+      .map(u => ({
+        name: u.username,
+        profilePicture: u.profilePicture
+      }));
+    
+    setContacts(contactsList);
+
+    // Check if we should open a specific DM (from general chat click)
+    const dmTarget = localStorage.getItem('dmTarget');
+    if (dmTarget && contactsList.some(c => c.name === dmTarget)) {
+      setSelectedContact(dmTarget);
+      localStorage.removeItem('dmTarget');
+    }
   }, []);
 
   useEffect(() => {
@@ -86,36 +108,43 @@ function DirectMessages() {
           <h2 className="text-xl font-bold text-purple-400">💬 Direktmeddelanden</h2>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {contacts.map((contact) => (
-            <button
-              key={contact.name}
-              onClick={() => setSelectedContact(contact.name)}
-              className={`w-full text-left p-4 border-b border-slate-700 transition-colors ${
-                selectedContact === contact.name
-                  ? 'bg-slate-700'
-                  : 'hover:bg-slate-750'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-                    {contact.name[0]}
+          {contacts.length === 0 ? (
+            <div className="p-4 text-center text-slate-400">
+              <p>Inga andra användare än</p>
+              <p className="text-sm mt-2">Vänta på att fler registrerar sig!</p>
+            </div>
+          ) : (
+            contacts.map((contact) => (
+              <button
+                key={contact.name}
+                onClick={() => setSelectedContact(contact.name)}
+                className={`w-full text-left p-4 border-b border-slate-700 transition-colors ${
+                  selectedContact === contact.name
+                    ? 'bg-slate-700'
+                    : 'hover:bg-slate-750'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-2xl">
+                      {contact.profilePicture || contact.name[0]}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-100">{contact.name}</p>
+                      <p className="text-sm text-slate-400 truncate max-w-[180px]">
+                        {contact.lastMessage || 'Starta en konversation'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-slate-100">{contact.name}</p>
-                    <p className="text-sm text-slate-400 truncate max-w-[180px]">
-                      {contact.lastMessage}
-                    </p>
-                  </div>
+                  {contact.unread && (
+                    <span className="bg-purple-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                      {contact.unread}
+                    </span>
+                  )}
                 </div>
-                {contact.unread && (
-                  <span className="bg-purple-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                    {contact.unread}
-                  </span>
-                )}
-              </div>
-            </button>
-          ))}
+              </button>
+            ))
+          )}
         </div>
       </div>
 
@@ -125,8 +154,8 @@ function DirectMessages() {
           <>
             <div className="bg-slate-800 border-b border-slate-700 p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-                  {selectedContact[0]}
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-2xl">
+                  {contacts.find(c => c.name === selectedContact)?.profilePicture || selectedContact[0]}
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-slate-100">{selectedContact}</h2>

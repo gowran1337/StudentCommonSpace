@@ -58,6 +58,24 @@ function Profile() {
   useEffect(() => {
     localStorage.setItem('profileSettings', JSON.stringify(settings));
     localStorage.setItem('username', settings.username);
+    
+    // Also update in users list
+    const currentUser = localStorage.getItem('currentUser');
+    if (currentUser) {
+      const usersJson = localStorage.getItem('users');
+      const users = usersJson ? JSON.parse(usersJson) : [];
+      const userIndex = users.findIndex((u: any) => u.username === currentUser);
+      
+      if (userIndex !== -1) {
+        users[userIndex].profilePicture = settings.profilePicture;
+        users[userIndex].quote = settings.quote;
+        localStorage.setItem('users', JSON.stringify(users));
+      }
+      
+      // Save user-specific settings
+      localStorage.setItem(`profileSettings_${currentUser}`, JSON.stringify(settings));
+    }
+    
     document.body.className = `bg-${themes[settings.theme].bg}`;
   }, [settings]);
 
