@@ -1,116 +1,126 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-interface User {
-  username: string;
-  password: string;
-  profilePicture: string;
-  quote: string;
-}
+import { useAuth } from '../contexts/AuthContext';
 
 const Login = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [rememberMe, setRememberMe] = useState(false);
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
+    const { signIn } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Get registered users
-    const usersJson = localStorage.getItem('users');
-    const users: User[] = usersJson ? JSON.parse(usersJson) : [];
+    // Load saved credentials on mount
+    useEffect(() => {
+        const savedEmail = localStorage.getItem('rememberedEmail');
+        const savedPassword = localStorage.getItem('rememberedPassword');
+        if (savedEmail && savedPassword) {
+            setEmail(savedEmail);
+            setPassword(savedPassword);
+            setRememberMe(true);
+        }
+    }, []);
 
-    // Check credentials
-    const user = users.find(u => u.username === username && u.password === password);
-    
-    if (user) {
-      localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('currentUser', username);
-      localStorage.setItem('username', username);
-      
-      // Load user's profile settings
-      const savedSettings = localStorage.getItem(`profileSettings_${username}`);
-      if (savedSettings) {
-        localStorage.setItem('profileSettings', savedSettings);
-      } else {
-        localStorage.setItem('profileSettings', JSON.stringify({
-          username: user.username,
-          profilePicture: user.profilePicture,
-          quote: user.quote,
-          backgroundImage: '',
-          theme: 'dark'
-        }));
-      }
-      
-      navigate('/calendar');
-    } else {
-      setError('Fel användarnamn eller lösenord');
-    }
-  };
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
-      <div className="w-full max-w-md p-8 bg-slate-800 rounded-lg shadow-xl border border-slate-700">
-        <h1 className="text-3xl font-bold text-center text-white mb-8">Logga in</h1>
-        
-        {error && <div className="mb-4 p-3 bg-red-900 border border-red-700 text-red-100 rounded">{error}</div>}
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="username" className="block text-sm font-medium text-slate-300 mb-2">
-              Användarnamn
-            </label>
-            <input
-              type="text"
-              id="username"
-              value={username}
-              onChange={(e) => {
-                setUsername(e.target.value);
-                setError('');
-              }}
-              placeholder="Ange användarnamn"
-              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:border-purple-400 transition"
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
-              Lösenord
-            </label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setError('');
-              }}
-              placeholder="Ange lösenord"
-              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:border-purple-400 transition"
-            />
-          </div>
-          
-          <button
-            type="submit"
-            className="w-full py-2 mt-6 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded transition"
-          >
-            Logga in
-          </button>
-        </form>
-        
-        <p className="mt-4 text-center text-sm text-slate-400">
-          Har du inget konto?{' '}
-          <button
-            onClick={() => navigate('/register')}
-            className="text-purple-400 hover:text-purple-300 underline"
-          >
-            Registrera här
-          </button>
-        </p>
-      </div>
-    </div>
-  );
+        try {
+            const { error } = await signIn(email, password);
+            if (error) {
+                setError(error.message);
+            } else {
+                // Save or clear credentials based on remember me
+                if (rememberMe) {
+                    localStorage.setItem('rememberedEmail', email);
+                    localStorage.setItem('rememberedPassword', password);
+                } else {
+                    localStorage.removeItem('rememberedEmail');
+                    localStorage.removeItem('rememberedPassword');
+                }
+                navigate('/calendar');
+            }
+        } catch {
+            setError('An unexpected error occurred');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
+            <div className="w-full max-w-md p-8 bg-slate-800 rounded-lg shadow-xl border border-slate-700">
+                <h1 className="text-3xl font-bold text-center text-white mb-8">Login</h1>
+
+                {error && (
+                    <div className="mb-4 p-3 bg-red-900 border border-red-700 text-red-100 rounded">
+                        {error}
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
+                            Email
+                        </label>
+                        <input
+                            type="email"
+                            id="email"
+                            value={email}
+                            onChange={(e) => {
+                                setEmail(e.target.value);
+                                setError('');
+                            }}
+                            placeholder="Enter your email"
+                            className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:border-purple-400 transition"
+                            required
+                        />
+                    </div>
+
+                    <div>
+                        <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
+                            Password
+                        </label>
+                        <input
+                            type="password"
+                            id="password"
+                            value={password}
+                            onChange={(e) => {
+                                setPassword(e.target.value);
+                                setError('');
+                            }}
+                            placeholder="Enter your password"
+                            className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:border-purple-400 transition"
+                            required
+                        />
+                    </div>
+
+                    <div className="flex items-center">
+                        <input
+                            type="checkbox"
+                            id="rememberMe"
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                            className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-purple-600 focus:ring-purple-500 focus:ring-offset-slate-800"
+                        />
+                        <label htmlFor="rememberMe" className="ml-2 text-sm text-slate-300">
+                            Remember me
+                        </label>
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full py-2 mt-6 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white font-medium rounded transition"
+                    >
+                        {loading ? 'Loading...' : 'Sign In'}
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
 };
 
 export default Login;

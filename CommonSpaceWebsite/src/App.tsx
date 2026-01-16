@@ -1,5 +1,7 @@
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
+import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Calendar from './pages/Calendar';
@@ -11,20 +13,68 @@ import Profile from './pages/Profile';
 
 function AppContent() {
   const location = useLocation();
-  const isLoginPage = location.pathname === '/' || location.pathname === '/register';
+  const { user, loading } = useAuth();
+  const isAuthPage = location.pathname === '/' || location.pathname === '/register';
+
+  // Redirect authenticated users away from auth pages
+  if (!loading && user && isAuthPage) {
+    return <Navigate to="/calendar" replace />;
+  }
 
   return (
     <>
-      {!isLoginPage && <Navbar />}
+      {!isAuthPage && user && <Navbar />}
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/calendar" element={<Calendar />} />
-        <Route path="/bulletinboard" element={<BulletinBoard />} />
-        <Route path="/drawboard" element={<DrawBoard />} />
-        <Route path="/generalchat" element={<GeneralChat />} />
-        <Route path="/directmessages" element={<DirectMessages />} />
-        <Route path="/profile" element={<Profile />} />
+        <Route
+          path="/calendar"
+          element={
+            <ProtectedRoute>
+              <Calendar />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/bulletinboard"
+          element={
+            <ProtectedRoute>
+              <BulletinBoard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/drawboard"
+          element={
+            <ProtectedRoute>
+              <DrawBoard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/generalchat"
+          element={
+            <ProtectedRoute>
+              <GeneralChat />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/directmessages"
+          element={
+            <ProtectedRoute>
+              <DirectMessages />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </>
   );
@@ -33,7 +83,9 @@ function AppContent() {
 function App() {
   return (
     <Router>
-      <AppContent />
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </Router>
   );
 }
