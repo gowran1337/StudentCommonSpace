@@ -1,0 +1,214 @@
+.taskboard {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.taskboard h1 {
+  text-align: center;
+  color: #333;
+  margin-bottom: 30px;
+  font-size: 2.5rem;
+}
+
+.taskboard-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 25px;
+  align-items: start;
+}
+
+.taskboard-section {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+}
+
+.taskboard-section:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.taskboard-section h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #2c3e50;
+  font-size: 1.5rem;
+  border-bottom: 3px solid #3498db;
+  padding-bottom: 10px;
+}
+
+.add-item-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.add-item-form input {
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.3s;
+}
+
+.add-item-form input:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.add-item-form button {
+  padding: 12px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.add-item-form button:hover {
+  background-color: #2980b9;
+}
+
+.add-item-form button:active {
+  transform: scale(0.98);
+}
+
+/* Task List Styles */
+.task-list,
+.schedule-list,
+.shopping-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.task-list li,
+.schedule-list li,
+.shopping-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #3498db;
+  transition: all 0.2s;
+}
+
+.task-list li:hover,
+.schedule-list li:hover,
+.shopping-list li:hover {
+  background: #e9ecef;
+  transform: translateX(5px);
+}
+
+.task-list li.completed {
+  opacity: 0.6;
+  border-left-color: #27ae60;
+}
+
+.shopping-list li.purchased {
+  opacity: 0.6;
+  border-left-color: #27ae60;
+}
+
+.task-list input[type="checkbox"],
+.shopping-list input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #27ae60;
+}
+
+.task-text,
+.item-name {
+  flex: 1;
+  font-size: 1rem;
+  color: #2c3e50;
+}
+
+.task-list li.completed .task-text,
+.shopping-list li.purchased .item-name {
+  text-decoration: line-through;
+}
+
+.assignee,
+.added-by {
+  font-size: 0.85rem;
+  color: #7f8c8d;
+  font-style: italic;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: #e74c3c;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.delete-btn:hover {
+  background-color: #e74c3c;
+  color: white;
+}
+
+/* Schedule Specific Styles */
+.schedule-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+}
+
+.schedule-day {
+  font-size: 0.9rem;
+  color: #3498db;
+  font-weight: 600;
+}
+
+/* Shopping List Specific Styles */
+.item-quantity {
+  font-size: 0.9rem;
+  color: #95a5a6;
+  background: #ecf0f1;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .taskboard-container {
+    grid-template-columns: 1fr;
+  }
+
+  .taskboard h1 {
+    font-size: 2rem;
+  }
+
+  .add-item-form {
+    gap: 8px;
+  }
+}
+
+/* Loading State */
+.taskboard h1:only-child {
+  text-align: center;
+  color: #7f8c8d;
+  margin-top: 100px;
+}

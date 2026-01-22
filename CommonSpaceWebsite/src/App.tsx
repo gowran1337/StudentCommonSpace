@@ -10,6 +10,7 @@ import DrawBoard from './pages/DrawBoard';
 import GeneralChat from './pages/GeneralChat';
 import DirectMessages from './pages/DirectMessages';
 import Profile from './pages/Profile';
+import TaskBoard from './pages/TaskBoard';
 
 function AppContent() {
   const location = useLocation();
@@ -72,6 +73,14 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/taskboard"
+          element={
+            <ProtectedRoute>
+              <TaskBoard />
             </ProtectedRoute>
           }
         />

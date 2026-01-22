@@ -37,6 +37,16 @@ const Navbar = () => {
                     </li>
                     <li>
                         <NavLink
+                            to="/taskboard"
+                            className={({ isActive }) =>
+                                isActive ? 'text-purple-400 font-medium' : 'text-slate-300 hover:text-purple-400 transition'
+                            }
+                        >
+                            ✅ Task Board
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink
                             to="/drawboard"
                             className={({ isActive }) =>
                                 isActive ? 'text-purple-400 font-medium' : 'text-slate-300 hover:text-purple-400 transition'
