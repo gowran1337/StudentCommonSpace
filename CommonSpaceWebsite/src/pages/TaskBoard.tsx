@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import './TaskBoard.css';
+import CleaningOrder from '../components/CleaningOrder';
 import {
   cleaningTasksApi,
   shoppingListApi,
@@ -140,6 +141,8 @@ function TaskBoard() {
       <h1>Studentens Anslagstavla</h1>
 
       <div className="taskboard-container">
+        {/* Cleaning Order Section */}
+        <CleaningOrder />
         {/* Cleaning Tasks Section */}
         <section className="taskboard-section">
           <h2>🧹 Städuppgifter</h2>
