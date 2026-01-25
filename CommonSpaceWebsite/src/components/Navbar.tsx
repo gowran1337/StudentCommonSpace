@@ -47,6 +47,16 @@ const Navbar = () => {
                     </li>
                     <li>
                         <NavLink
+                            to="/expenses"
+                            className={({ isActive }) =>
+                                isActive ? 'text-purple-400 font-medium' : 'text-slate-300 hover:text-purple-400 transition'
+                            }
+                        >
+                            💰 Expenses
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink
                             to="/drawboard"
                             className={({ isActive }) =>
                                 isActive ? 'text-purple-400 font-medium' : 'text-slate-300 hover:text-purple-400 transition'

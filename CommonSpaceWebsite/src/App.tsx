@@ -11,6 +11,7 @@ import GeneralChat from './pages/GeneralChat';
 import DirectMessages from './pages/DirectMessages';
 import Profile from './pages/Profile';
 import TaskBoard from './pages/TaskBoard';
+import Expenses from './pages/Expenses';
 
 function AppContent() {
   const location = useLocation();
@@ -81,6 +82,14 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <TaskBoard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/expenses"
+          element={
+            <ProtectedRoute>
+              <Expenses />
             </ProtectedRoute>
           }
         />

@@ -489,3 +489,98 @@ export const cleaningRotationApi = {
   },
 };
 
+// Expenses/Splitwise Interfaces
+export interface Expense {
+  id: number;
+  description: string;
+  amount: number;
+  paid_by: string;
+  split_between: string[]; // Array of user IDs or usernames
+  date: string;
+  created_at?: string;
+}
+
+export interface Settlement {
+  id: number;
+  from_user: string;
+  to_user: string;
+  amount: number;
+  date: string;
+  created_at?: string;
+}
+
+// Expenses API
+export const expensesApi = {
+  getAll: async (): Promise<Expense[]> => {
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('*')
+      .order('date', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+  },
+  
+  create: async (expense: Omit<Expense, 'id' | 'created_at'>): Promise<Expense> => {
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert([expense])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+  
+  update: async (id: number, expense: Partial<Expense>): Promise<void> => {
+    const { error } = await supabase
+      .from('expenses')
+      .update(expense)
+      .eq('id', id);
+    
+    if (error) throw error;
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    const { error } = await supabase
+      .from('expenses')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+  },
+};
+
+// Settlements API
+export const settlementsApi = {
+  getAll: async (): Promise<Settlement[]> => {
+    const { data, error } = await supabase
+      .from('settlements')
+      .select('*')
+      .order('date', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+  },
+  
+  create: async (settlement: Omit<Settlement, 'id' | 'created_at'>): Promise<Settlement> => {
+    const { data, error } = await supabase
+      .from('settlements')
+      .insert([settlement])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    const { error } = await supabase
+      .from('settlements')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+  },
+};
+
