@@ -2,26 +2,19 @@ import { useState, useEffect } from 'react';
 import './TaskBoard.css';
 import {
   cleaningTasksApi,
-  cleaningScheduleApi,
   shoppingListApi,
   type CleaningTask,
-  type CleaningScheduleItem,
   type ShoppingItem
 } from '../services/api';
 
 function TaskBoard() {
   const [cleaningTasks, setCleaningTasks] = useState<CleaningTask[]>([]);
-  const [schedule, setSchedule] = useState<CleaningScheduleItem[]>([]);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskAssignee, setNewTaskAssignee] = useState('');
-  
-  const [newScheduleArea, setNewScheduleArea] = useState('');
-  const [newScheduleDay, setNewScheduleDay] = useState('');
-  const [newScheduleAssignee, setNewScheduleAssignee] = useState('');
-  
+
   const [newShoppingItem, setNewShoppingItem] = useState('');
   const [newShoppingQuantity, setNewShoppingQuantity] = useState('');
   const [newShoppingAddedBy, setNewShoppingAddedBy] = useState('');
@@ -33,13 +26,11 @@ function TaskBoard() {
 
   const loadData = async () => {
     try {
-      const [tasks, scheduleItems, shopping] = await Promise.all([
+      const [tasks, shopping] = await Promise.all([
         cleaningTasksApi.getAll(),
-        cleaningScheduleApi.getAll(),
         shoppingListApi.getAll(),
       ]);
       setCleaningTasks(tasks);
-      setSchedule(scheduleItems);
       setShoppingList(shopping);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -90,33 +81,7 @@ function TaskBoard() {
     }
   };
 
-  // Schedule Functions
-  const addScheduleItem = async () => {
-    if (newScheduleArea.trim() && newScheduleDay.trim()) {
-      try {
-        const newItem = await cleaningScheduleApi.create({
-          area: newScheduleArea,
-          day: newScheduleDay,
-          assignee: newScheduleAssignee,
-        });
-        setSchedule([...schedule, newItem]);
-        setNewScheduleArea('');
-        setNewScheduleDay('');
-        setNewScheduleAssignee('');
-      } catch (error) {
-        console.error('Error adding schedule item:', error);
-      }
-    }
-  };
 
-  const deleteScheduleItem = async (id: number) => {
-    try {
-      await cleaningScheduleApi.delete(id);
-      setSchedule(schedule.filter((item) => item.id !== id));
-    } catch (error) {
-      console.error('Error deleting schedule item:', error);
-    }
-  };
 
   // Shopping List Functions
   const addShoppingItem = async () => {
@@ -210,51 +175,6 @@ function TaskBoard() {
                 <button
                   className="delete-btn"
                   onClick={() => deleteTask(task.id)}
-                >
-                  ×
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        {/* Cleaning Schedule Section */}
-        <section className="taskboard-section">
-          <h2>📅 Städschema</h2>
-          <div className="add-item-form">
-            <input
-              type="text"
-              placeholder="Område..."
-              value={newScheduleArea}
-              onChange={(e) => setNewScheduleArea(e.target.value)}
-            />
-            <input
-              type="text"
-              placeholder="Dag..."
-              value={newScheduleDay}
-              onChange={(e) => setNewScheduleDay(e.target.value)}
-            />
-            <input
-              type="text"
-              placeholder="Ansvarig (valfritt)"
-              value={newScheduleAssignee}
-              onChange={(e) => setNewScheduleAssignee(e.target.value)}
-            />
-            <button onClick={addScheduleItem}>Lägg till</button>
-          </div>
-          <ul className="schedule-list">
-            {schedule.map((item) => (
-              <li key={item.id}>
-                <div className="schedule-item">
-                  <strong>{item.area}</strong>
-                  <span className="schedule-day">{item.day}</span>
-                  {item.assignee && (
-                    <span className="assignee">{item.assignee}</span>
-                  )}
-                </div>
-                <button
-                  className="delete-btn"
-                  onClick={() => deleteScheduleItem(item.id)}
                 >
                   ×
                 </button>
