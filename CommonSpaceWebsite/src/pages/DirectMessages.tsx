@@ -8,64 +8,81 @@ interface Message {
   timestamp: Date;
 }
 
-interface Contact {
-  name: string;
-  profilePicture: string;
-  lastMessage?: string;
-  unread?: number;
-}
-
 interface User {
   username: string;
   profilePicture: string;
 }
 
 function DirectMessages() {
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [selectedContact, setSelectedContact] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const savedUsername = localStorage.getItem('username') || 'You';
+  const usersJson = localStorage.getItem('users');
+  const users: User[] = usersJson ? JSON.parse(usersJson) : [];
+  const initialContacts = users
+    .filter(u => u.username !== savedUsername)
+    .map(u => ({
+      name: u.username,
+      profilePicture: u.profilePicture
+    }));
+  
+  // Check if we should open a specific DM (from general chat click)
+  const dmTarget = localStorage.getItem('dmTarget');
+  const initialSelectedContact = (dmTarget && initialContacts.some(c => c.name === dmTarget)) 
+    ? dmTarget 
+    : null;
+  if (dmTarget) {
+    localStorage.removeItem('dmTarget');
+  }
+
+  const contacts = initialContacts;
+  const [selectedContact, setSelectedContact] = useState<string | null>(initialSelectedContact);
+  
+  // Load initial messages
+  const getInitialMessages = () => {
+    if (!initialSelectedContact) return [];
+    const savedMessages = localStorage.getItem(`dm_${initialSelectedContact}`);
+    if (!savedMessages) return [];
+    interface StoredMessage {
+      id: number;
+      sender: string;
+      receiver: string;
+      text: string;
+      timestamp: string;
+    }
+    return JSON.parse(savedMessages).map((msg: StoredMessage) => ({
+      ...msg,
+      timestamp: new Date(msg.timestamp)
+    }));
+  };
+  
+  const [messages, setMessages] = useState<Message[]>(getInitialMessages());
   const [newMessage, setNewMessage] = useState('');
-  const [username, setUsername] = useState('');
+  const [username] = useState(savedUsername);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Load messages when selected contact changes (not on mount)
   useEffect(() => {
-    const savedUsername = localStorage.getItem('username') || 'You';
-    setUsername(savedUsername);
-
-    // Load all registered users as potential contacts
-    const usersJson = localStorage.getItem('users');
-    const users: User[] = usersJson ? JSON.parse(usersJson) : [];
-    
-    // Filter out current user and create contact list
-    const contactsList = users
-      .filter(u => u.username !== savedUsername)
-      .map(u => ({
-        name: u.username,
-        profilePicture: u.profilePicture
-      }));
-    
-    setContacts(contactsList);
-
-    // Check if we should open a specific DM (from general chat click)
-    const dmTarget = localStorage.getItem('dmTarget');
-    if (dmTarget && contactsList.some(c => c.name === dmTarget)) {
-      setSelectedContact(dmTarget);
-      localStorage.removeItem('dmTarget');
-    }
-  }, []);
-
-  useEffect(() => {
-    if (selectedContact) {
+    if (selectedContact !== initialSelectedContact && selectedContact) {
       const savedMessages = localStorage.getItem(`dm_${selectedContact}`);
       if (savedMessages) {
-        setMessages(JSON.parse(savedMessages).map((msg: any) => ({
+        interface StoredMessage {
+          id: number;
+          sender: string;
+          receiver: string;
+          text: string;
+          timestamp: string;
+        }
+        const loadedMessages = JSON.parse(savedMessages).map((msg: StoredMessage) => ({
           ...msg,
           timestamp: new Date(msg.timestamp)
-        })));
+        }));
+        setMessages(loadedMessages);
       } else {
         setMessages([]);
       }
+    } else if (!selectedContact) {
+      setMessages([]);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedContact]);
 
   useEffect(() => {

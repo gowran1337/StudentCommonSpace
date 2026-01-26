@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import { expensesApi, settlementsApi, usersApi, type Expense, type Settlement, type User } from '../services/api';
 
 interface Balance {

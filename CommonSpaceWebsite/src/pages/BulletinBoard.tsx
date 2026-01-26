@@ -6,7 +6,7 @@ import {
   type BulletinPostIt
 } from '../services/api';
 
-interface PostIt extends BulletinPostIt {}
+type PostIt = BulletinPostIt;
 
 interface DrawingPath {
   points: { x: number; y: number }[];

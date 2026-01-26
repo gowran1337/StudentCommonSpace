@@ -10,33 +10,32 @@ interface Message {
 }
 
 function GeneralChat() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [username, setUsername] = useState('');
-  const [userProfilePic, setUserProfilePic] = useState('😀');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    // Load username and profile from localStorage
-    const savedUsername = localStorage.getItem('username') || 'Anonymous';
-    setUsername(savedUsername);
-    
-    const profileSettings = localStorage.getItem('profileSettings');
-    if (profileSettings) {
-      const settings = JSON.parse(profileSettings);
-      setUserProfilePic(settings.profilePicture || '😀');
-    }
-
-    // Load messages from localStorage
-    const savedMessages = localStorage.getItem('generalChatMessages');
-    if (savedMessages) {
-      setMessages(JSON.parse(savedMessages).map((msg: any) => ({
+  const savedUsername = localStorage.getItem('username') || 'Anonymous';
+  const profileSettings = localStorage.getItem('profileSettings');
+  const settings = profileSettings ? JSON.parse(profileSettings) : null;
+  const savedMessages = localStorage.getItem('generalChatMessages');
+  
+  interface StoredMessage {
+    id: number;
+    user: string;
+    text: string;
+    timestamp: string;
+    profilePicture?: string;
+  }
+  
+  const initialMessages: Message[] = savedMessages 
+    ? JSON.parse(savedMessages).map((msg: StoredMessage) => ({
         ...msg,
         timestamp: new Date(msg.timestamp)
-      })));
-    }
-  }, []);
+      }))
+    : [];
+
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [newMessage, setNewMessage] = useState('');
+  const [username] = useState(savedUsername);
+  const [userProfilePic] = useState(settings?.profilePicture || '😀');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Save messages to localStorage

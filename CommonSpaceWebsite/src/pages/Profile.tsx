@@ -37,23 +37,19 @@ const defaultProfilePics = [
 ];
 
 function Profile() {
-  const [settings, setSettings] = useState<ProfileSettings>({
+  const savedSettings = localStorage.getItem('profileSettings');
+  const initialSettings: ProfileSettings = savedSettings ? JSON.parse(savedSettings) : {
     username: '',
     profilePicture: '😀',
     quote: '',
     backgroundImage: '',
     theme: 'dark',
-  });
+  };
+
+  const [settings, setSettings] = useState<ProfileSettings>(initialSettings);
 
   const [isEditingQuote, setIsEditingQuote] = useState(false);
   const [tempQuote, setTempQuote] = useState('');
-
-  useEffect(() => {
-    const savedSettings = localStorage.getItem('profileSettings');
-    if (savedSettings) {
-      setSettings(JSON.parse(savedSettings));
-    }
-  }, []);
 
   useEffect(() => {
     localStorage.setItem('profileSettings', JSON.stringify(settings));
@@ -63,8 +59,12 @@ function Profile() {
     const currentUser = localStorage.getItem('currentUser');
     if (currentUser) {
       const usersJson = localStorage.getItem('users');
-      const users = usersJson ? JSON.parse(usersJson) : [];
-      const userIndex = users.findIndex((u: any) => u.username === currentUser);
+      interface UserInList {
+        username: string;
+        profilePicture: string;
+      }
+      const users: UserInList[] = usersJson ? JSON.parse(usersJson) : [];
+      const userIndex = users.findIndex((u) => u.username === currentUser);
       
       if (userIndex !== -1) {
         users[userIndex].profilePicture = settings.profilePicture;
