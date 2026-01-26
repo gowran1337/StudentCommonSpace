@@ -1,11 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   bulletinPostItsApi,
   bulletinDrawingsApi,
   bulletinTextApi,
-  type BulletinPostIt,
-  type BulletinDrawing,
-  type BulletinText
+  type BulletinPostIt
 } from '../services/api';
 
 interface PostIt extends BulletinPostIt {}
@@ -51,9 +49,53 @@ const BulletinBoard = () => {
     loadData();
   }, []);
 
+  const drawCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw all saved drawings
+    drawings.forEach(drawing => {
+      drawing.paths.forEach(path => {
+        if (path.points.length < 2) return;
+
+        ctx.strokeStyle = path.color;
+        ctx.lineWidth = path.size || 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        ctx.beginPath();
+        ctx.moveTo(path.points[0].x, path.points[0].y);
+        for (let i = 1; i < path.points.length; i++) {
+          ctx.lineTo(path.points[i].x, path.points[i].y);
+        }
+        ctx.stroke();
+      });
+    });
+
+    // Draw current path being drawn
+    if (currentPath.length > 1) {
+      ctx.strokeStyle = selectedColor;
+      ctx.lineWidth = brushSize;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(currentPath[0].x, currentPath[0].y);
+      for (let i = 1; i < currentPath.length; i++) {
+        ctx.lineTo(currentPath[i].x, currentPath[i].y);
+      }
+      ctx.stroke();
+    }
+  }, [drawings, currentPath, selectedColor, brushSize]);
+
   useEffect(() => {
     drawCanvas();
-  }, [drawings]);
+  }, [drawCanvas]);
 
   const loadData = async () => {
     try {
@@ -79,49 +121,6 @@ const BulletinBoard = () => {
       console.error('Error loading bulletin board data:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const drawCanvas = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw all saved drawings
-    drawings.forEach(drawing => {
-      drawing.paths.forEach(path => {
-        if (path.points.length < 2) return;
-        
-        ctx.strokeStyle = path.color;
-        ctx.lineWidth = path.size || 3;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        
-        ctx.beginPath();
-        ctx.moveTo(path.points[0].x, path.points[0].y);
-        for (let i = 1; i < path.points.length; i++) {
-          ctx.lineTo(path.points[i].x, path.points[i].y);
-        }
-        ctx.stroke();
-      });
-    });
-
-    // Draw current path being drawn
-    if (currentPath.length > 1) {
-      ctx.strokeStyle = selectedColor;
-      ctx.lineWidth = brushSize;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      
-      ctx.beginPath();
-      ctx.moveTo(currentPath[0].x, currentPath[0].y);
-      for (let i = 1; i < currentPath.length; i++) {
-        ctx.lineTo(currentPath[i].x, currentPath[i].y);
-      }
-      ctx.stroke();
     }
   };
 

@@ -7,7 +7,6 @@ interface Balance {
 }
 
 const Expenses = () => {
-  const { user } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -73,8 +72,8 @@ const Expenses = () => {
     const balances = calculateBalances();
     const debts: { from: string; to: string; amount: number }[] = [];
     
-    const creditors = Object.entries(balances).filter(([_, amount]) => amount > 0.01).sort((a, b) => b[1] - a[1]);
-    const debtors = Object.entries(balances).filter(([_, amount]) => amount < -0.01).sort((a, b) => a[1] - b[1]);
+    const creditors = Object.entries(balances).filter(([, amount]) => amount > 0.01).sort((a, b) => b[1] - a[1]);
+    const debtors = Object.entries(balances).filter(([, amount]) => amount < -0.01).sort((a, b) => a[1] - b[1]);
 
     let i = 0, j = 0;
     while (i < creditors.length && j < debtors.length) {

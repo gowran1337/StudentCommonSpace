@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { cleaningRotationApi, type CleaningRotationUser, type RotationState } from '../services/api';
 import './CleaningOrder.css';
 
@@ -8,14 +8,7 @@ function CleaningOrder() {
     const [loading, setLoading] = useState(true);
     const [daysRemaining, setDaysRemaining] = useState<number>(7);
 
-    useEffect(() => {
-        loadRotationData();
-        // Check rotation every minute
-        const interval = setInterval(checkRotation, 60000);
-        return () => clearInterval(interval);
-    }, []);
-
-    const loadRotationData = async () => {
+    const loadRotationData = useCallback(async () => {
         try {
             const [rotationData, stateData] = await Promise.all([
                 cleaningRotationApi.getRotation(),
@@ -34,9 +27,9 @@ function CleaningOrder() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const checkRotation = async () => {
+    const checkRotation = useCallback(async () => {
         try {
             const advanced = await cleaningRotationApi.checkAndAdvanceIfNeeded();
             if (advanced) {
@@ -46,7 +39,14 @@ function CleaningOrder() {
         } catch (error) {
             console.error('Error checking rotation:', error);
         }
-    };
+    }, [loadRotationData]);
+
+    useEffect(() => {
+        loadRotationData();
+        // Check rotation every minute
+        const interval = setInterval(checkRotation, 60000);
+        return () => clearInterval(interval);
+    }, [loadRotationData, checkRotation]);
 
     if (loading) {
         return (
