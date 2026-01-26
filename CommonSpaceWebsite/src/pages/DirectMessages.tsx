@@ -8,6 +8,13 @@ interface Message {
   timestamp: Date;
 }
 
+interface Contact {
+  name: string;
+  profilePicture: string;
+  lastMessage?: string;
+  unread?: number;
+}
+
 interface User {
   username: string;
   profilePicture: string;
@@ -17,7 +24,7 @@ function DirectMessages() {
   const savedUsername = localStorage.getItem('username') || 'You';
   const usersJson = localStorage.getItem('users');
   const users: User[] = usersJson ? JSON.parse(usersJson) : [];
-  const initialContacts = users
+  const initialContacts: Contact[] = users
     .filter(u => u.username !== savedUsername)
     .map(u => ({
       name: u.username,

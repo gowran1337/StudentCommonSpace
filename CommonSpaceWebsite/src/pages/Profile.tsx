@@ -62,6 +62,7 @@ function Profile() {
       interface UserInList {
         username: string;
         profilePicture: string;
+        quote?: string;
       }
       const users: UserInList[] = usersJson ? JSON.parse(usersJson) : [];
       const userIndex = users.findIndex((u) => u.username === currentUser);
