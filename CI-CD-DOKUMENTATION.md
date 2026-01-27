@@ -37,9 +37,6 @@ Live: https://gowran1337.github.io/StudentCommonSpace/
 
 **Lint/build failar:** Kör `npm run lint` eller `npm run build` lokalt, fixa fel, pusha igen
 
-**Deploy failar (404):** GitHub Pages inte aktiverat. Fråga repo ägare att sätta Source: "GitHub Actions" under Settings -> Pages
-
-**Alternativ:** Använd Vercel istället (vercel.com, logga in med GitHub, välj repo, sätt Root Directory: CommonSpaceWebsite)
 
 ## Viktigt
 
