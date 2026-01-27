@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Helper function to get current user's flat code
 const getUserFlatCode = (): string | null => {

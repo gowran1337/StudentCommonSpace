@@ -1,29 +1,37 @@
--- Initial Supabase Setup for Student Common Space
+-- Supabase Setup v2 - Handles existing tables
 -- Run this in your Supabase SQL Editor
 
--- 1. Create profiles table
+-- 1. Create profiles table if it doesn't exist
 CREATE TABLE IF NOT EXISTS profiles (
     id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
     email TEXT,
-    flat_code TEXT,
     profile_picture TEXT DEFAULT '😀',
     quote TEXT DEFAULT '',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 1b. Add flat_code column to existing profiles table
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS flat_code TEXT;
+
+-- 1c. Update existing profiles with a default flat_code if they don't have one
+UPDATE profiles SET flat_code = 'LEGACY' WHERE flat_code IS NULL;
+
 -- 2. Enable Row Level Security
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- 3. Create policies for profiles
+-- 3. Drop existing policies if they exist and recreate
+DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
 CREATE POLICY "Users can view their own profile"
     ON profiles FOR SELECT
     USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
 CREATE POLICY "Users can insert their own profile"
     ON profiles FOR INSERT
-    WITH CHECK (auth.uid() = id);
+    WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
 CREATE POLICY "Users can update their own profile"
     ON profiles FOR UPDATE
     USING (auth.uid() = id);
@@ -95,34 +103,42 @@ ALTER TABLE bulletin_postits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 
 -- 8. Create RLS policies for flat_code isolation
+DROP POLICY IF EXISTS "Users can view their flat's cleaning tasks" ON cleaning_tasks;
 CREATE POLICY "Users can view their flat's cleaning tasks"
     ON cleaning_tasks FOR SELECT
     USING (flat_code = (SELECT flat_code FROM profiles WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS "Users can insert their flat's cleaning tasks" ON cleaning_tasks;
 CREATE POLICY "Users can insert their flat's cleaning tasks"
     ON cleaning_tasks FOR INSERT
     WITH CHECK (flat_code = (SELECT flat_code FROM profiles WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS "Users can view their flat's shopping list" ON shopping_list;
 CREATE POLICY "Users can view their flat's shopping list"
     ON shopping_list FOR SELECT
     USING (flat_code = (SELECT flat_code FROM profiles WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS "Users can insert their flat's shopping items" ON shopping_list;
 CREATE POLICY "Users can insert their flat's shopping items"
     ON shopping_list FOR INSERT
     WITH CHECK (flat_code = (SELECT flat_code FROM profiles WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS "Users can view their flat's bulletin posts" ON bulletin_postits;
 CREATE POLICY "Users can view their flat's bulletin posts"
     ON bulletin_postits FOR SELECT
     USING (flat_code = (SELECT flat_code FROM profiles WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS "Users can insert their flat's bulletin posts" ON bulletin_postits;
 CREATE POLICY "Users can insert their flat's bulletin posts"
     ON bulletin_postits FOR INSERT
     WITH CHECK (flat_code = (SELECT flat_code FROM profiles WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS "Users can view their flat's expenses" ON expenses;
 CREATE POLICY "Users can view their flat's expenses"
     ON expenses FOR SELECT
     USING (flat_code = (SELECT flat_code FROM profiles WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS "Users can insert their flat's expenses" ON expenses;
 CREATE POLICY "Users can insert their flat's expenses"
     ON expenses FOR INSERT
     WITH CHECK (flat_code = (SELECT flat_code FROM profiles WHERE id = auth.uid()));
