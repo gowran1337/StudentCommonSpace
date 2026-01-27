@@ -6,6 +6,7 @@ interface ProfileSettings {
   quote: string;
   backgroundImage: string;
   theme: 'dark' | 'purple' | 'blue' | 'green';
+  flatCode?: string;
 }
 
 const themes = {
@@ -38,12 +39,14 @@ const defaultProfilePics = [
 
 function Profile() {
   const savedSettings = localStorage.getItem('profileSettings');
+  const flatCode = localStorage.getItem('flatCode') || '';
   const initialSettings: ProfileSettings = savedSettings ? JSON.parse(savedSettings) : {
     username: '',
     profilePicture: '😀',
     quote: '',
     backgroundImage: '',
     theme: 'dark',
+    flatCode: flatCode,
   };
 
   const [settings, setSettings] = useState<ProfileSettings>(initialSettings);
@@ -171,6 +174,26 @@ function Profile() {
               className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-slate-100 placeholder-slate-400 focus:outline-none focus:border-purple-400"
             />
           </div>
+
+          {/* Flat Code Section */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-slate-100 mb-4">Lägenhetskod</h2>
+            <div className={`bg-slate-700 border-2 border-${currentTheme.primary}-500 rounded-lg p-4`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-slate-300 text-sm mb-1">Din lägenhetskod:</p>
+                  <p className={`text-2xl font-bold text-${currentTheme.primary}-400`}>{flatCode || 'Ingen kod angiven'}</p>
+                </div>
+                <div className="text-4xl">🏠</div>
+              </div>
+              <p className="text-slate-400 text-sm mt-3">
+                Dela denna kod med dina rumskamrater så de kan gå med i samma lägenhet. 
+                Endast personer med samma kod kan se era gemensamma saker.
+              </p>
+            </div>
+          </div>
+
+          {/* v>
 
           {/* Quote Section */}
           <div className="mb-8">

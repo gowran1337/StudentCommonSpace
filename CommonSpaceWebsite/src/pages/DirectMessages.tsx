@@ -18,14 +18,18 @@ interface Contact {
 interface User {
   username: string;
   profilePicture: string;
+  flatCode?: string;
 }
 
 function DirectMessages() {
   const savedUsername = localStorage.getItem('username') || 'You';
+  const currentUserFlatCode = localStorage.getItem('flatCode') || '';
   const usersJson = localStorage.getItem('users');
   const users: User[] = usersJson ? JSON.parse(usersJson) : [];
+  
+  // Filter users to only show those from the same flat
   const initialContacts: Contact[] = users
-    .filter(u => u.username !== savedUsername)
+    .filter(u => u.username !== savedUsername && u.flatCode === currentUserFlatCode)
     .map(u => ({
       name: u.username,
       profilePicture: u.profilePicture
@@ -134,8 +138,12 @@ function DirectMessages() {
         <div className="flex-1 overflow-y-auto">
           {contacts.length === 0 ? (
             <div className="p-4 text-center text-slate-400">
-              <p>Inga andra användare än</p>
-              <p className="text-sm mt-2">Vänta på att fler registrerar sig!</p>
+              <p>Inga rumskamrater än</p>
+              <p className="text-sm mt-2">
+                {currentUserFlatCode 
+                  ? `Dela din lägenhetskod "${currentUserFlatCode}" med dina rumskamrater!` 
+                  : 'Ange en lägenhetskod i din profil först.'}
+              </p>
             </div>
           ) : (
             contacts.map((contact) => (

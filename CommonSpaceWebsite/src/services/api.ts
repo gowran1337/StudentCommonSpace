@@ -1,10 +1,16 @@
 import { supabase } from '../lib/supabase';
 
+// Helper function to get current user's flat code
+const getUserFlatCode = (): string | null => {
+  return localStorage.getItem('flatCode');
+};
+
 export interface CleaningTask {
   id: number;
   text: string;
   completed: boolean;
   assignee: string;
+  flat_code?: string;
 }
 
 export interface CleaningScheduleItem {
@@ -12,6 +18,7 @@ export interface CleaningScheduleItem {
   area: string;
   day: string;
   assignee: string;
+  flat_code?: string;
 }
 
 export interface ShoppingItem {
@@ -20,14 +27,19 @@ export interface ShoppingItem {
   quantity: string;
   purchased: boolean;
   addedBy: string;
+  flat_code?: string;
 }
 
 // Cleaning Tasks API using Supabase
 export const cleaningTasksApi = {
   getAll: async (): Promise<CleaningTask[]> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return [];
+    
     const { data, error } = await supabase
       .from('cleaning_tasks')
       .select('*')
+      .eq('flat_code', flatCode)
       .order('id', { ascending: true });
 
     if (error) throw error;
@@ -35,9 +47,12 @@ export const cleaningTasksApi = {
   },
 
   create: async (task: Omit<CleaningTask, 'id'>): Promise<CleaningTask> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) throw new Error('No flat code found');
+    
     const { data, error } = await supabase
       .from('cleaning_tasks')
-      .insert([task])
+      .insert([{ ...task, flat_code: flatCode }])
       .select()
       .single();
 
@@ -67,9 +82,13 @@ export const cleaningTasksApi = {
 // Cleaning Schedule API using Supabase
 export const cleaningScheduleApi = {
   getAll: async (): Promise<CleaningScheduleItem[]> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return [];
+    
     const { data, error } = await supabase
       .from('cleaning_schedule')
       .select('*')
+      .eq('flat_code', flatCode)
       .order('id', { ascending: true });
 
     if (error) throw error;
@@ -77,9 +96,12 @@ export const cleaningScheduleApi = {
   },
 
   create: async (item: Omit<CleaningScheduleItem, 'id'>): Promise<CleaningScheduleItem> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) throw new Error('No flat code found');
+    
     const { data, error } = await supabase
       .from('cleaning_schedule')
-      .insert([item])
+      .insert([{ ...item, flat_code: flatCode }])
       .select()
       .single();
 
@@ -109,9 +131,13 @@ export const cleaningScheduleApi = {
 // Shopping List API using Supabase
 export const shoppingListApi = {
   getAll: async (): Promise<ShoppingItem[]> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return [];
+    
     const { data, error } = await supabase
       .from('shopping_list')
       .select('*')
+      .eq('flat_code', flatCode)
       .order('id', { ascending: true });
 
     if (error) throw error;
@@ -125,6 +151,9 @@ export const shoppingListApi = {
   },
 
   create: async (item: Omit<ShoppingItem, 'id'>): Promise<ShoppingItem> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) throw new Error('No flat code found');
+    
     const { data, error } = await supabase
       .from('shopping_list')
       .insert([{
@@ -132,6 +161,7 @@ export const shoppingListApi = {
         quantity: item.quantity,
         purchased: item.purchased,
         added_by: item.addedBy,
+        flat_code: flatCode,
       }])
       .select()
       .single();
@@ -177,12 +207,14 @@ export interface BulletinPostIt {
   y: number;
   text: string;
   color: string;
+  flat_code?: string;
 }
 
 export interface BulletinDrawing {
   id: number;
   paths: string; // JSON string of drawing paths
   color: string;
+  flat_code?: string;
 }
 
 export interface BulletinText {
@@ -192,14 +224,19 @@ export interface BulletinText {
   text: string;
   font_size: number;
   color: string;
+  flat_code?: string;
 }
 
 // Bulletin Post-its API
 export const bulletinPostItsApi = {
   getAll: async (): Promise<BulletinPostIt[]> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return [];
+    
     const { data, error } = await supabase
       .from('bulletin_postits')
       .select('*')
+      .eq('flat_code', flatCode)
       .order('id', { ascending: true });
 
     if (error) throw error;
@@ -207,9 +244,12 @@ export const bulletinPostItsApi = {
   },
 
   create: async (postit: Omit<BulletinPostIt, 'id'>): Promise<BulletinPostIt> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) throw new Error('No flat code found');
+    
     const { data, error } = await supabase
       .from('bulletin_postits')
-      .insert([postit])
+      .insert([{ ...postit, flat_code: flatCode }])
       .select()
       .single();
 
@@ -239,9 +279,13 @@ export const bulletinPostItsApi = {
 // Bulletin Drawings API
 export const bulletinDrawingsApi = {
   getAll: async (): Promise<BulletinDrawing[]> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return [];
+    
     const { data, error } = await supabase
       .from('bulletin_drawings')
       .select('*')
+      .eq('flat_code', flatCode)
       .order('id', { ascending: true });
 
     if (error) throw error;
@@ -249,9 +293,12 @@ export const bulletinDrawingsApi = {
   },
 
   create: async (drawing: Omit<BulletinDrawing, 'id'>): Promise<BulletinDrawing> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) throw new Error('No flat code found');
+    
     const { data, error } = await supabase
       .from('bulletin_drawings')
-      .insert([drawing])
+      .insert([{ ...drawing, flat_code: flatCode }])
       .select()
       .single();
 
@@ -272,9 +319,13 @@ export const bulletinDrawingsApi = {
 // Bulletin Text API
 export const bulletinTextApi = {
   getAll: async (): Promise<BulletinText[]> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return [];
+    
     const { data, error } = await supabase
       .from('bulletin_text')
       .select('*')
+      .eq('flat_code', flatCode)
       .order('id', { ascending: true });
 
     if (error) throw error;
@@ -282,9 +333,12 @@ export const bulletinTextApi = {
   },
 
   create: async (text: Omit<BulletinText, 'id'>): Promise<BulletinText> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) throw new Error('No flat code found');
+    
     const { data, error } = await supabase
       .from('bulletin_text')
-      .insert([text])
+      .insert([{ ...text, flat_code: flatCode }])
       .select()
       .single();
 
@@ -498,6 +552,7 @@ export interface Expense {
   split_between: string[]; // Array of user IDs or usernames
   date: string;
   created_at?: string;
+  flat_code?: string;
 }
 
 export interface Settlement {
@@ -507,14 +562,19 @@ export interface Settlement {
   amount: number;
   date: string;
   created_at?: string;
+  flat_code?: string;
 }
 
 // Expenses API
 export const expensesApi = {
   getAll: async (): Promise<Expense[]> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return [];
+    
     const { data, error } = await supabase
       .from('expenses')
       .select('*')
+      .eq('flat_code', flatCode)
       .order('date', { ascending: false });
     
     if (error) throw error;
@@ -522,9 +582,12 @@ export const expensesApi = {
   },
   
   create: async (expense: Omit<Expense, 'id' | 'created_at'>): Promise<Expense> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) throw new Error('No flat code found');
+    
     const { data, error } = await supabase
       .from('expenses')
-      .insert([expense])
+      .insert([{ ...expense, flat_code: flatCode }])
       .select()
       .single();
     
@@ -554,9 +617,13 @@ export const expensesApi = {
 // Settlements API
 export const settlementsApi = {
   getAll: async (): Promise<Settlement[]> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return [];
+    
     const { data, error } = await supabase
       .from('settlements')
       .select('*')
+      .eq('flat_code', flatCode)
       .order('date', { ascending: false });
     
     if (error) throw error;
@@ -564,9 +631,12 @@ export const settlementsApi = {
   },
   
   create: async (settlement: Omit<Settlement, 'id' | 'created_at'>): Promise<Settlement> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) throw new Error('No flat code found');
+    
     const { data, error } = await supabase
       .from('settlements')
-      .insert([settlement])
+      .insert([{ ...settlement, flat_code: flatCode }])
       .select()
       .single();
     

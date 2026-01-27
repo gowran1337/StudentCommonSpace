@@ -40,10 +40,10 @@ const Login = () => {
                     localStorage.removeItem('rememberedEmail');
                     localStorage.removeItem('rememberedPassword');
                 }
-                navigate('/calendar');
+                navigate('/profile');
             }
         } catch {
-            setError('An unexpected error occurred');
+            setError('Ett oväntat fel uppstod');
         } finally {
             setLoading(false);
         }
@@ -63,7 +63,7 @@ const Login = () => {
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                         <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
-                            Email
+                            E-post
                         </label>
                         <input
                             type="email"
@@ -73,15 +73,16 @@ const Login = () => {
                                 setEmail(e.target.value);
                                 setError('');
                             }}
-                            placeholder="Enter your email"
+                            placeholder="din@email.com"
                             className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:border-purple-400 transition"
                             required
+                            disabled={loading}
                         />
                     </div>
 
                     <div>
                         <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
-                            Password
+                            Lösenord
                         </label>
                         <input
                             type="password"
@@ -91,9 +92,10 @@ const Login = () => {
                                 setPassword(e.target.value);
                                 setError('');
                             }}
-                            placeholder="Enter your password"
+                            placeholder="Ange ditt lösenord"
                             className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:border-purple-400 transition"
                             required
+                            disabled={loading}
                         />
                     </div>
 
@@ -106,7 +108,7 @@ const Login = () => {
                             className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-purple-600 focus:ring-purple-500 focus:ring-offset-slate-800"
                         />
                         <label htmlFor="rememberMe" className="ml-2 text-sm text-slate-300">
-                            Remember me
+                            Kom ihåg mig
                         </label>
                     </div>
 
@@ -115,7 +117,7 @@ const Login = () => {
                         disabled={loading}
                         className="w-full py-2 mt-6 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white font-medium rounded transition"
                     >
-                        {loading ? 'Loading...' : 'Sign In'}
+                        {loading ? 'Loggar in...' : 'Logga in'}
                     </button>
                 </form>
             </div>

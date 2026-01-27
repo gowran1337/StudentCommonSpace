@@ -1,75 +1,91 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-interface User {
-  username: string;
-  password: string;
-  profilePicture: string;
-  quote: string;
-}
+import { supabase } from '../lib/supabase';
 
 const defaultProfilePics = ['😀', '😎', '🤓', '🤖', '👽', '🦄', '🐱', '🐶', '🐼', '🦊'];
 
 function Register() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [flatCode, setFlatCode] = useState('');
   const [profilePicture, setProfilePicture] = useState('😀');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    if (!username || !password) {
-      setError('Fyll i användarnamn och lösenord');
+    if (!email || !password) {
+      setError('Fyll i e-post och lösenord');
+      setLoading(false);
+      return;
+    }
+
+    if (!flatCode || flatCode.trim().length < 3) {
+      setError('Ange en giltig lägenhetskod (minst 3 tecken)');
+      setLoading(false);
       return;
     }
 
     if (password !== confirmPassword) {
       setError('Lösenorden matchar inte');
+      setLoading(false);
       return;
     }
 
-    if (password.length < 3) {
-      setError('Lösenordet måste vara minst 3 tecken');
+    if (password.length < 6) {
+      setError('Lösenordet måste vara minst 6 tecken');
+      setLoading(false);
       return;
     }
 
-    // Get existing users
-    const usersJson = localStorage.getItem('users');
-    const users: User[] = usersJson ? JSON.parse(usersJson) : [];
+    try {
+      // Sign up with Supabase and include flat_code in metadata
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            flat_code: flatCode.trim().toUpperCase(),
+            profile_picture: profilePicture
+          }
+        }
+      });
 
-    // Check if username already exists
-    if (users.some(u => u.username === username)) {
-      setError('Användarnamnet är redan taget');
-      return;
+      if (signUpError) {
+        setError(signUpError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        // Update profile with additional details
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            profile_picture: profilePicture,
+            flat_code: flatCode.trim().toUpperCase()
+          })
+          .eq('id', data.user.id);
+
+        if (profileError) {
+          console.error('Profile update error:', profileError);
+          // Don't show error to user as profile was created by trigger
+        }
+
+        // Navigate to login
+        navigate('/login');
+      }
+    } catch (err) {
+      setError('Ett oväntat fel uppstod');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-
-    // Create new user
-    const newUser: User = {
-      username,
-      password,
-      profilePicture,
-      quote: ''
-    };
-
-    users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(users));
-
-    // Auto login
-    localStorage.setItem('currentUser', username);
-    localStorage.setItem('username', username);
-    localStorage.setItem('profileSettings', JSON.stringify({
-      username,
-      profilePicture,
-      quote: '',
-      backgroundImage: '',
-      theme: 'dark'
-    }));
-
-    navigate('/profile');
   };
 
   return (
@@ -85,22 +101,44 @@ function Register() {
         
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-slate-300 mb-2">
-              Användarnamn
+            <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
+              E-post
             </label>
             <input
-              type="text"
-              id="username"
-              value={username}
+              type="email"
+              id="email"
+              value={email}
               onChange={(e) => {
-                setUsername(e.target.value);
+                setEmail(e.target.value);
                 setError('');
               }}
-              placeholder="Välj ett användarnamn"
+              placeholder="din@email.com"
               className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:border-purple-400 transition"
+              disabled={loading}
             />
           </div>
           
+          <div>
+            <label htmlFor="flatCode" className="block text-sm font-medium text-slate-300 mb-2">
+              Lägenhetskod
+            </label>
+            <input
+              type="text"
+              id="flatCode"
+              value={flatCode}
+              onChange={(e) => {
+                setFlatCode(e.target.value);
+                setError('');
+              }}
+              placeholder="T.ex. FLAT101 eller ROOM5A"
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:border-purple-400 transition uppercase"
+              disabled={loading}
+            />
+            <p className="text-xs text-slate-400 mt-1">
+              Dela samma kod med dina rumskamrater
+            </p>
+          </div>
+
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
               Lösenord
@@ -115,6 +153,7 @@ function Register() {
               }}
               placeholder="Välj ett lösenord"
               className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:border-purple-400 transition"
+              disabled={loading}
             />
           </div>
 
@@ -132,6 +171,7 @@ function Register() {
               }}
               placeholder="Bekräfta ditt lösenord"
               className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:border-purple-400 transition"
+              disabled={loading}
             />
           </div>
 
@@ -157,9 +197,10 @@ function Register() {
           
           <button
             type="submit"
-            className="w-full py-2 mt-6 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded transition"
+            disabled={loading}
+            className="w-full py-2 mt-6 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Registrera
+            {loading ? 'Registrerar...' : 'Registrera'}
           </button>
         </form>
         
