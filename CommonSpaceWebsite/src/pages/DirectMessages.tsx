@@ -1,123 +1,142 @@
 import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { directMessagesApi, profilesApi, type DirectMessage as ApiDirectMessage, type Profile } from '../services/api';
 
 interface Message {
   id: number;
-  sender: string;
-  receiver: string;
+  sender_id: string;
+  sender_username: string;
+  receiver_id: string;
+  receiver_username: string;
   text: string;
   timestamp: Date;
 }
 
 interface Contact {
+  id: string;
   name: string;
   profilePicture: string;
   lastMessage?: string;
   unread?: number;
 }
 
-interface User {
-  username: string;
-  profilePicture: string;
-  flatCode?: string;
-}
-
 function DirectMessages() {
-  const savedUsername = localStorage.getItem('username') || 'You';
-  const currentUserFlatCode = localStorage.getItem('flatCode') || '';
-  const usersJson = localStorage.getItem('users');
-  const users: User[] = usersJson ? JSON.parse(usersJson) : [];
+  const { user, flatCode } = useAuth();
+  const profileSettings = localStorage.getItem('profileSettings');
+  const settings = profileSettings ? JSON.parse(profileSettings) : null;
+  const username = settings?.username || user?.email?.split('@')[0] || 'You';
   
-  // Filter users to only show those from the same flat
-  const initialContacts: Contact[] = users
-    .filter(u => u.username !== savedUsername && u.flatCode === currentUserFlatCode)
-    .map(u => ({
-      name: u.username,
-      profilePicture: u.profilePicture
-    }));
-  
-  // Check if we should open a specific DM (from general chat click)
-  const dmTarget = localStorage.getItem('dmTarget');
-  const initialSelectedContact = (dmTarget && initialContacts.some(c => c.name === dmTarget)) 
-    ? dmTarget 
-    : null;
-  if (dmTarget) {
-    localStorage.removeItem('dmTarget');
-  }
-
-  const contacts = initialContacts;
-  const [selectedContact, setSelectedContact] = useState<string | null>(initialSelectedContact);
-  
-  // Load initial messages
-  const getInitialMessages = () => {
-    if (!initialSelectedContact) return [];
-    const savedMessages = localStorage.getItem(`dm_${initialSelectedContact}`);
-    if (!savedMessages) return [];
-    interface StoredMessage {
-      id: number;
-      sender: string;
-      receiver: string;
-      text: string;
-      timestamp: string;
-    }
-    return JSON.parse(savedMessages).map((msg: StoredMessage) => ({
-      ...msg,
-      timestamp: new Date(msg.timestamp)
-    }));
-  };
-  
-  const [messages, setMessages] = useState<Message[]>(getInitialMessages());
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [username] = useState(savedUsername);
+  const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load messages when selected contact changes (not on mount)
+  // Load contacts from profiles
   useEffect(() => {
-    if (selectedContact !== initialSelectedContact && selectedContact) {
-      const savedMessages = localStorage.getItem(`dm_${selectedContact}`);
-      if (savedMessages) {
-        interface StoredMessage {
-          id: number;
-          sender: string;
-          receiver: string;
-          text: string;
-          timestamp: string;
-        }
-        const loadedMessages = JSON.parse(savedMessages).map((msg: StoredMessage) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp)
+    const loadContacts = async () => {
+      try {
+        const profiles = await profilesApi.getFlatMembers();
+        const contactsList: Contact[] = profiles.map((p: Profile) => ({
+          id: p.id,
+          name: p.email?.split('@')[0] || 'Unknown',
+          profilePicture: p.profile_picture || '😀'
         }));
-        setMessages(loadedMessages);
-      } else {
-        setMessages([]);
+        setContacts(contactsList);
+        
+        // Check if there's a dmTarget from general chat
+        const dmTarget = localStorage.getItem('dmTarget');
+        if (dmTarget) {
+          localStorage.removeItem('dmTarget');
+          const targetContact = contactsList.find(c => c.name === dmTarget);
+          if (targetContact) {
+            setSelectedContact(targetContact);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading contacts:', error);
+      } finally {
+        setLoading(false);
       }
-    } else if (!selectedContact) {
-      setMessages([]);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    };
+
+    loadContacts();
+  }, []);
+
+  // Load messages when contact is selected
+  useEffect(() => {
+    const loadMessages = async () => {
+      if (!selectedContact) {
+        setMessages([]);
+        return;
+      }
+      
+      try {
+        const data = await directMessagesApi.getConversation(selectedContact.id);
+        setMessages(data.map((msg: ApiDirectMessage) => ({
+          id: msg.id,
+          sender_id: msg.sender_id,
+          sender_username: msg.sender_username,
+          receiver_id: msg.receiver_id,
+          receiver_username: msg.receiver_username,
+          text: msg.text,
+          timestamp: new Date(msg.created_at)
+        })));
+      } catch (error) {
+        console.error('Error loading messages:', error);
+      }
+    };
+
+    loadMessages();
   }, [selectedContact]);
 
+  // Subscribe to realtime updates
   useEffect(() => {
-    if (selectedContact && messages.length > 0) {
-      localStorage.setItem(`dm_${selectedContact}`, JSON.stringify(messages));
-    }
-  }, [messages, selectedContact]);
+    if (!flatCode || !user) return;
+
+    const channel = directMessagesApi.subscribe(flatCode, user.id, (newMsg: ApiDirectMessage) => {
+      // Only add if relevant to current conversation
+      if (selectedContact && 
+          (newMsg.sender_id === selectedContact.id || newMsg.receiver_id === selectedContact.id)) {
+        setMessages(prev => {
+          if (prev.some(m => m.id === newMsg.id)) return prev;
+          return [...prev, {
+            id: newMsg.id,
+            sender_id: newMsg.sender_id,
+            sender_username: newMsg.sender_username,
+            receiver_id: newMsg.receiver_id,
+            receiver_username: newMsg.receiver_username,
+            text: newMsg.text,
+            timestamp: new Date(newMsg.created_at)
+          }];
+        });
+      }
+    });
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [flatCode, user, selectedContact]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const sendMessage = (e: React.FormEvent) => {
+  const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newMessage.trim() && selectedContact) {
-      const message: Message = {
-        id: Date.now(),
-        sender: username,
-        receiver: selectedContact,
+    if (!newMessage.trim() || !selectedContact || !user) return;
+
+    try {
+      await directMessagesApi.create({
+        receiver_id: selectedContact.id,
+        receiver_username: selectedContact.name,
         text: newMessage.trim(),
-        timestamp: new Date()
-      };
-      setMessages([...messages, message]);
+        sender_username: username
+      });
       setNewMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
     }
   };
 
@@ -127,6 +146,14 @@ function DirectMessages() {
       minute: '2-digit'
     });
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-900">
+        <p className="text-white">Laddar kontakter...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-slate-900">
@@ -140,18 +167,18 @@ function DirectMessages() {
             <div className="p-4 text-center text-slate-400">
               <p>Inga rumskamrater än</p>
               <p className="text-sm mt-2">
-                {currentUserFlatCode 
-                  ? `Dela din lägenhetskod "${currentUserFlatCode}" med dina rumskamrater!` 
+                {flatCode 
+                  ? `Dela din lägenhetskod "${flatCode}" med dina rumskamrater!` 
                   : 'Ange en lägenhetskod i din profil först.'}
               </p>
             </div>
           ) : (
             contacts.map((contact) => (
               <button
-                key={contact.name}
-                onClick={() => setSelectedContact(contact.name)}
+                key={contact.id}
+                onClick={() => setSelectedContact(contact)}
                 className={`w-full text-left p-4 border-b border-slate-700 transition-colors ${
-                  selectedContact === contact.name
+                  selectedContact?.id === contact.id
                     ? 'bg-slate-700'
                     : 'hover:bg-slate-750'
                 }`}
@@ -187,10 +214,10 @@ function DirectMessages() {
             <div className="bg-slate-800 border-b border-slate-700 p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-2xl">
-                  {contacts.find(c => c.name === selectedContact)?.profilePicture || selectedContact[0]}
+                  {selectedContact.profilePicture || selectedContact.name[0]}
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-100">{selectedContact}</h2>
+                  <h2 className="text-xl font-bold text-slate-100">{selectedContact.name}</h2>
                   <p className="text-sm text-slate-400">Online</p>
                 </div>
               </div>
@@ -200,17 +227,17 @@ function DirectMessages() {
               {messages.length === 0 ? (
                 <div className="text-center text-slate-500 mt-8">
                   <p className="text-lg">Inga meddelanden än</p>
-                  <p className="text-sm">Starta en konversation med {selectedContact}! 👋</p>
+                  <p className="text-sm">Starta en konversation med {selectedContact.name}! 👋</p>
                 </div>
               ) : (
                 messages.map((msg) => (
                   <div
                     key={msg.id}
-                    className={`flex ${msg.sender === username ? 'justify-end' : 'justify-start'}`}
+                    className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
                       className={`max-w-md px-4 py-2 rounded-lg ${
-                        msg.sender === username
+                        msg.sender_id === user?.id
                           ? 'bg-purple-600 text-white'
                           : 'bg-slate-700 text-slate-100'
                       }`}
@@ -232,7 +259,7 @@ function DirectMessages() {
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder={`Skicka meddelande till ${selectedContact}...`}
+                  placeholder={`Skicka meddelande till ${selectedContact.name}...`}
                   className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-slate-100 placeholder-slate-400 focus:outline-none focus:border-purple-400"
                 />
                 <button

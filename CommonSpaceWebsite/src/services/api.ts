@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabase';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Helper function to get current user's flat code
 const getUserFlatCode = (): string | null => {
@@ -142,7 +141,7 @@ export const shoppingListApi = {
       .order('id', { ascending: true });
 
     if (error) throw error;
-    return (data || []).map(item => ({
+    return (data || []).map((item: { id: number; item: string; quantity: string; purchased: boolean; added_by: string }) => ({
       id: item.id,
       item: item.item,
       quantity: item.quantity,
@@ -436,8 +435,8 @@ export const cleaningRotationApi = {
     console.log('All users data:', usersData);
 
     // Manually join the data
-    const mapped = (rotationData || []).map(rotationItem => {
-      const user = (usersData || []).find(u => u.id === rotationItem.user_id);
+    const mapped = (rotationData || []).map((rotationItem: { id: number; user_id: string; order_position: number; created_at: string; updated_at: string }) => {
+      const user = (usersData || []).find((u: User) => u.id === rotationItem.user_id);
       console.log(`Rotation item ${rotationItem.id} user_id: ${rotationItem.user_id}, found user:`, user);
       return {
         ...rotationItem,
@@ -655,3 +654,188 @@ export const settlementsApi = {
   },
 };
 
+// Messages Interface
+export interface Message {
+  id: number;
+  user_id: string;
+  username: string;
+  text: string;
+  profile_picture?: string;
+  flat_code?: string;
+  created_at: string;
+}
+
+// Messages API
+export const messagesApi = {
+  getAll: async (): Promise<Message[]> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return [];
+    
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('flat_code', flatCode)
+      .order('created_at', { ascending: true });
+    
+    if (error) throw error;
+    return data || [];
+  },
+  
+  create: async (message: { username: string; text: string; profile_picture?: string; user_id: string }): Promise<Message> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) throw new Error('No flat code found');
+    
+    const { data, error } = await supabase
+      .from('messages')
+      .insert([{ ...message, flat_code: flatCode }])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+  },
+  
+  // Subscribe to realtime changes
+  subscribe: (flatCode: string, callback: (message: Message) => void) => {
+    return supabase
+      .channel('messages-channel')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `flat_code=eq.${flatCode}`,
+        },
+        (payload) => {
+          callback(payload.new as Message);
+        }
+      )
+      .subscribe();
+  },
+};
+
+// Direct Messages Interface
+export interface DirectMessage {
+  id: number;
+  sender_id: string;
+  sender_username: string;
+  receiver_id: string;
+  receiver_username: string;
+  text: string;
+  flat_code?: string;
+  created_at: string;
+}
+
+// Profile Interface for contacts
+export interface Profile {
+  id: string;
+  email?: string;
+  username?: string;
+  profile_picture?: string;
+  flat_code?: string;
+}
+
+// Direct Messages API
+export const directMessagesApi = {
+  // Get all DMs for current user with a specific contact
+  getConversation: async (contactId: string): Promise<DirectMessage[]> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return [];
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    
+    const { data, error } = await supabase
+      .from('direct_messages')
+      .select('*')
+      .eq('flat_code', flatCode)
+      .or(`and(sender_id.eq.${user.id},receiver_id.eq.${contactId}),and(sender_id.eq.${contactId},receiver_id.eq.${user.id})`)
+      .order('created_at', { ascending: true });
+    
+    if (error) throw error;
+    return data || [];
+  },
+  
+  create: async (message: { receiver_id: string; receiver_username: string; text: string; sender_username: string }): Promise<DirectMessage> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) throw new Error('No flat code found');
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+    
+    const { data, error } = await supabase
+      .from('direct_messages')
+      .insert([{ 
+        ...message, 
+        sender_id: user.id,
+        flat_code: flatCode 
+      }])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    const { error } = await supabase
+      .from('direct_messages')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+  },
+  
+  // Subscribe to realtime DM changes
+  subscribe: (flatCode: string, currentUserId: string, callback: (message: DirectMessage) => void) => {
+    return supabase
+      .channel('dm-channel')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'direct_messages',
+          filter: `flat_code=eq.${flatCode}`,
+        },
+        (payload) => {
+          const msg = payload.new as DirectMessage;
+          // Only trigger for messages involving current user
+          if (msg.sender_id === currentUserId || msg.receiver_id === currentUserId) {
+            callback(msg);
+          }
+        }
+      )
+      .subscribe();
+  },
+};
+
+// Profiles API - to get flat members as contacts
+export const profilesApi = {
+  getFlatMembers: async (): Promise<Profile[]> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return [];
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, email, profile_picture, flat_code')
+      .eq('flat_code', flatCode)
+      .neq('id', user.id);
+    
+    if (error) throw error;
+    return data || [];
+  },
+};

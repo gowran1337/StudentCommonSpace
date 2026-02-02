@@ -1,73 +1,106 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { messagesApi, type Message as ApiMessage } from '../services/api';
 
 interface Message {
   id: number;
   user: string;
+  user_id: string;
   text: string;
   timestamp: Date;
   profilePicture?: string;
 }
 
 function GeneralChat() {
-  const savedUsername = localStorage.getItem('username') || 'Anonymous';
+  const { user, flatCode } = useAuth();
   const profileSettings = localStorage.getItem('profileSettings');
   const settings = profileSettings ? JSON.parse(profileSettings) : null;
-  const savedMessages = localStorage.getItem('generalChatMessages');
-  
-  interface StoredMessage {
-    id: number;
-    user: string;
-    text: string;
-    timestamp: string;
-    profilePicture?: string;
-  }
-  
-  const initialMessages: Message[] = savedMessages 
-    ? JSON.parse(savedMessages).map((msg: StoredMessage) => ({
-        ...msg,
-        timestamp: new Date(msg.timestamp)
-      }))
-    : [];
+  const username = settings?.username || user?.email?.split('@')[0] || 'Anonymous';
+  const userProfilePic = settings?.profilePicture || '😀';
 
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [username] = useState(savedUsername);
-  const [userProfilePic] = useState(settings?.profilePicture || '😀');
+  const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
+  // Load messages from Supabase
   useEffect(() => {
-    // Save messages to localStorage
-    if (messages.length > 0) {
-      localStorage.setItem('generalChatMessages', JSON.stringify(messages));
-    }
-  }, [messages]);
+    const loadMessages = async () => {
+      try {
+        const data = await messagesApi.getAll();
+        setMessages(data.map((msg: ApiMessage) => ({
+          id: msg.id,
+          user: msg.username,
+          user_id: msg.user_id,
+          text: msg.text,
+          timestamp: new Date(msg.created_at),
+          profilePicture: msg.profile_picture
+        })));
+      } catch (error) {
+        console.error('Error loading messages:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMessages();
+  }, []);
+
+  // Subscribe to realtime updates
+  useEffect(() => {
+    if (!flatCode) return;
+
+    const channel = messagesApi.subscribe(flatCode, (newMsg: ApiMessage) => {
+      // Only add if not already in list (avoid duplicates from own messages)
+      setMessages(prev => {
+        if (prev.some(m => m.id === newMsg.id)) return prev;
+        return [...prev, {
+          id: newMsg.id,
+          user: newMsg.username,
+          user_id: newMsg.user_id,
+          text: newMsg.text,
+          timestamp: new Date(newMsg.created_at),
+          profilePicture: newMsg.profile_picture
+        }];
+      });
+    });
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [flatCode]);
 
   useEffect(() => {
     // Auto-scroll to bottom
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const sendMessage = (e: React.FormEvent) => {
+  const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newMessage.trim()) {
-      const message: Message = {
-        id: Date.now(),
-        user: username,
+    if (!newMessage.trim() || !user) return;
+
+    try {
+      await messagesApi.create({
+        username: username,
         text: newMessage.trim(),
-        timestamp: new Date(),
-        profilePicture: userProfilePic
-      };
-      setMessages([...messages, message]);
+        profile_picture: userProfilePic,
+        user_id: user.id
+      });
       setNewMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
     }
   };
 
-  const deleteMessage = (messageId: number) => {
-    const updatedMessages = messages.filter(msg => msg.id !== messageId);
-    setMessages(updatedMessages);
-    localStorage.setItem('generalChatMessages', JSON.stringify(updatedMessages));
+  const deleteMessage = async (messageId: number) => {
+    try {
+      await messagesApi.delete(messageId);
+      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+    } catch (error) {
+      console.error('Error deleting message:', error);
+    }
   };
 
   const formatTime = (date: Date) => {
@@ -76,6 +109,14 @@ function GeneralChat() {
       minute: '2-digit'
     });
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-900">
+        <p className="text-white">Laddar meddelanden...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-slate-900">
@@ -94,10 +135,10 @@ function GeneralChat() {
           messages.map((msg) => (
             <div
               key={msg.id}
-              className={`flex ${msg.user === username ? 'justify-end' : 'justify-start'}`}
+              className={`flex ${msg.user_id === user?.id ? 'justify-end' : 'justify-start'}`}
             >
               <div className="flex items-start gap-2 max-w-md">
-                {msg.user !== username && (
+                {msg.user_id !== user?.id && (
                   <button
                     onClick={() => {
                       localStorage.setItem('dmTarget', msg.user);
@@ -111,7 +152,7 @@ function GeneralChat() {
                 )}
                 <div
                   className={`px-4 py-2 rounded-lg relative group ${
-                    msg.user === username
+                    msg.user_id === user?.id
                       ? 'bg-purple-600 text-white'
                       : 'bg-slate-700 text-slate-100'
                   }`}
@@ -119,13 +160,13 @@ function GeneralChat() {
                   <div className="flex items-baseline gap-2 mb-1">
                     <button
                       onClick={() => {
-                        if (msg.user !== username) {
+                        if (msg.user_id !== user?.id) {
                           localStorage.setItem('dmTarget', msg.user);
                           navigate('/directmessages');
                         }
                       }}
                       className={`font-semibold text-sm ${
-                        msg.user !== username ? 'hover:underline cursor-pointer' : ''
+                        msg.user_id !== user?.id ? 'hover:underline cursor-pointer' : ''
                       }`}
                     >
                       {msg.user}
@@ -133,7 +174,7 @@ function GeneralChat() {
                     <span className="text-xs opacity-70">{formatTime(msg.timestamp)}</span>
                   </div>
                   <p className="break-words">{msg.text}</p>
-                  {msg.user === username && (
+                  {msg.user_id === user?.id && (
                     <button
                       onClick={() => deleteMessage(msg.id)}
                       className="absolute -top-2 -right-2 bg-red-600 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold"
@@ -143,7 +184,7 @@ function GeneralChat() {
                     </button>
                   )}
                 </div>
-                {msg.user === username && (
+                {msg.user_id === user?.id && (
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl flex-shrink-0">
                     {msg.profilePicture || '😀'}
                   </div>
