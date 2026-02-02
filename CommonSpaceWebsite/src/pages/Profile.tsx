@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ProfileSettings {
   username: string;
@@ -38,8 +40,26 @@ const defaultProfilePics = [
 ];
 
 function Profile() {
+  const { user } = useAuth();
   const savedSettings = localStorage.getItem('profileSettings');
   const flatCode = localStorage.getItem('flatCode') || '';
+
+  // Save flat code to Supabase
+  const saveFlatCodeToSupabase = async (code: string) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({ id: user.id, flat_code: code }, { onConflict: 'id' });
+      
+      if (error) {
+        console.error('Error saving flat code to Supabase:', error);
+      }
+    } catch (err) {
+      console.error('Error saving flat code:', err);
+    }
+  };
   const initialSettings: ProfileSettings = savedSettings ? JSON.parse(savedSettings) : {
     username: '',
     profilePicture: '😀',
@@ -179,14 +199,28 @@ function Profile() {
           <div className="mb-8">
             <h2 className="text-xl font-semibold text-slate-100 mb-4">Lägenhetskod</h2>
             <div className={`bg-slate-700 border-2 border-${currentTheme.primary}-500 rounded-lg p-4`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-300 text-sm mb-1">Din lägenhetskod:</p>
-                  <p className={`text-2xl font-bold text-${currentTheme.primary}-400`}>{flatCode || 'Ingen kod angiven'}</p>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex-1">
+                  <p className="text-slate-300 text-sm mb-2">Din lägenhetskod:</p>
+                  <input
+                    type="text"
+                    value={settings.flatCode || ''}
+                    onChange={(e) => {
+                      const newCode = e.target.value.toUpperCase();
+                      setSettings({ ...settings, flatCode: newCode });
+                      localStorage.setItem('flatCode', newCode);
+                    }}
+                    onBlur={(e) => {
+                      const newCode = e.target.value.toUpperCase();
+                      saveFlatCodeToSupabase(newCode);
+                    }}
+                    placeholder="Ange lägenhetskod..."
+                    className={`w-full bg-slate-600 border border-slate-500 rounded-lg px-4 py-3 text-2xl font-bold text-${currentTheme.primary}-400 placeholder-slate-400 focus:outline-none focus:border-${currentTheme.primary}-400 uppercase tracking-widest`}
+                  />
                 </div>
-                <div className="text-4xl">🏠</div>
+                <div className="text-4xl ml-4">🏠</div>
               </div>
-              <p className="text-slate-400 text-sm mt-3">
+              <p className="text-slate-400 text-sm">
                 Dela denna kod med dina rumskamrater så de kan gå med i samma lägenhet. 
                 Endast personer med samma kod kan se era gemensamma saker.
               </p>
