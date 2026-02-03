@@ -346,6 +346,36 @@ export const bulletinPostItsApi = {
     const flatCode = getUserFlatCode();
     if (flatCode) cacheRemove(makeCacheKey(flatCode, 'bulletin_postits'));
   },
+
+  // Subscribe to realtime changes
+  subscribe: (flatCode: string, callbacks: {
+    onInsert?: (postit: BulletinPostIt) => void;
+    onUpdate?: (postit: BulletinPostIt) => void;
+    onDelete?: (id: number) => void;
+  }) => {
+    return supabase
+      .channel(`bulletin_postits_${flatCode}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bulletin_postits',
+          filter: `flat_code=eq.${flatCode}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT' && callbacks.onInsert) {
+            callbacks.onInsert(payload.new as BulletinPostIt);
+          } else if (payload.eventType === 'UPDATE' && callbacks.onUpdate) {
+            callbacks.onUpdate(payload.new as BulletinPostIt);
+          } else if (payload.eventType === 'DELETE' && callbacks.onDelete) {
+            callbacks.onDelete((payload.old as BulletinPostIt).id);
+          }
+          cacheRemove(makeCacheKey(flatCode, 'bulletin_postits'));
+        }
+      )
+      .subscribe();
+  },
 };
 
 // Bulletin Drawings API
@@ -394,6 +424,33 @@ export const bulletinDrawingsApi = {
 
     const flatCode = getUserFlatCode();
     if (flatCode) cacheRemove(makeCacheKey(flatCode, 'bulletin_drawings'));
+  },
+
+  // Subscribe to realtime changes
+  subscribe: (flatCode: string, callbacks: {
+    onInsert?: (drawing: BulletinDrawing) => void;
+    onDelete?: (id: number) => void;
+  }) => {
+    return supabase
+      .channel(`bulletin_drawings_${flatCode}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bulletin_drawings',
+          filter: `flat_code=eq.${flatCode}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT' && callbacks.onInsert) {
+            callbacks.onInsert(payload.new as BulletinDrawing);
+          } else if (payload.eventType === 'DELETE' && callbacks.onDelete) {
+            callbacks.onDelete((payload.old as BulletinDrawing).id);
+          }
+          cacheRemove(makeCacheKey(flatCode, 'bulletin_drawings'));
+        }
+      )
+      .subscribe();
   },
 };
 
@@ -452,6 +509,36 @@ export const bulletinTextApi = {
 
     const flatCode = getUserFlatCode();
     if (flatCode) cacheRemove(makeCacheKey(flatCode, 'bulletin_text'));
+  },
+
+  // Subscribe to realtime changes
+  subscribe: (flatCode: string, callbacks: {
+    onInsert?: (text: BulletinText) => void;
+    onUpdate?: (text: BulletinText) => void;
+    onDelete?: (id: number) => void;
+  }) => {
+    return supabase
+      .channel(`bulletin_text_${flatCode}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bulletin_text',
+          filter: `flat_code=eq.${flatCode}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT' && callbacks.onInsert) {
+            callbacks.onInsert(payload.new as BulletinText);
+          } else if (payload.eventType === 'UPDATE' && callbacks.onUpdate) {
+            callbacks.onUpdate(payload.new as BulletinText);
+          } else if (payload.eventType === 'DELETE' && callbacks.onDelete) {
+            callbacks.onDelete((payload.old as BulletinText).id);
+          }
+          cacheRemove(makeCacheKey(flatCode, 'bulletin_text'));
+        }
+      )
+      .subscribe();
   },
 };
 
@@ -952,5 +1039,120 @@ export const profilesApi = {
     
     if (error) throw error;
     return data || [];
+  },
+};
+
+// Calendar Event interface
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description?: string;
+  start_date: string;
+  end_date?: string;
+  all_day: boolean;
+  color: string;
+  created_by?: string;
+  created_by_name?: string;
+  flat_code: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Calendar Events API using Supabase with flat_code isolation
+export const calendarEventsApi = {
+  getAll: async (): Promise<CalendarEvent[]> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return [];
+
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .select('*')
+      .eq('flat_code', flatCode)
+      .order('start_date', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  getByDateRange: async (startDate: string, endDate: string): Promise<CalendarEvent[]> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return [];
+
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .select('*')
+      .eq('flat_code', flatCode)
+      .gte('start_date', startDate)
+      .lte('start_date', endDate)
+      .order('start_date', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  create: async (event: Omit<CalendarEvent, 'id' | 'created_at' | 'updated_at'>): Promise<CalendarEvent> => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) throw new Error('No flat code found');
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .insert([{
+        ...event,
+        flat_code: flatCode,
+        created_by: user.id,
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  update: async (id: string, updates: Partial<CalendarEvent>): Promise<CalendarEvent> => {
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    const { error } = await supabase
+      .from('calendar_events')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+
+  // Subscribe to realtime calendar changes
+  subscribe: (callback: (event: CalendarEvent, eventType: 'INSERT' | 'UPDATE' | 'DELETE') => void) => {
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return null;
+
+    return supabase
+      .channel('calendar-channel')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'calendar_events',
+          filter: `flat_code=eq.${flatCode}`,
+        },
+        (payload) => {
+          const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE';
+          const eventData = (payload.new || payload.old) as CalendarEvent;
+          callback(eventData, eventType);
+        }
+      )
+      .subscribe();
   },
 };

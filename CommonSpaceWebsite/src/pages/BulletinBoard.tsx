@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import {
   bulletinPostItsApi,
   bulletinDrawingsApi,
   bulletinTextApi,
-  type BulletinPostIt
+  type BulletinPostIt,
+  type BulletinDrawing,
+  type BulletinText
 } from '../services/api';
 
 type PostIt = BulletinPostIt;
@@ -29,6 +32,7 @@ interface TextItem {
 }
 
 const BulletinBoard = () => {
+  const { flatCode } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [postIts, setPostIts] = useState<PostIt[]>([]);
   const [drawings, setDrawings] = useState<Drawing[]>([]);
@@ -48,6 +52,73 @@ const BulletinBoard = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Subscribe to realtime updates
+  useEffect(() => {
+    if (!flatCode) return;
+
+    const postItChannel = bulletinPostItsApi.subscribe(flatCode, {
+      onInsert: (postit: BulletinPostIt) => {
+        setPostIts(prev => {
+          if (prev.some(p => p.id === postit.id)) return prev;
+          return [...prev, postit];
+        });
+      },
+      onUpdate: (postit: BulletinPostIt) => {
+        setPostIts(prev => prev.map(p => p.id === postit.id ? postit : p));
+      },
+      onDelete: (id: number) => {
+        setPostIts(prev => prev.filter(p => p.id !== id));
+      },
+    });
+
+    const drawingChannel = bulletinDrawingsApi.subscribe(flatCode, {
+      onInsert: (drawing: BulletinDrawing) => {
+        setDrawings(prev => {
+          if (prev.some(d => d.id === drawing.id)) return prev;
+          return [...prev, { id: drawing.id, paths: JSON.parse(drawing.paths) }];
+        });
+      },
+      onDelete: (id: number) => {
+        setDrawings(prev => prev.filter(d => d.id !== id));
+      },
+    });
+
+    const textChannel = bulletinTextApi.subscribe(flatCode, {
+      onInsert: (text: BulletinText) => {
+        setTextItems(prev => {
+          if (prev.some(t => t.id === text.id)) return prev;
+          return [...prev, {
+            id: text.id,
+            x: text.x,
+            y: text.y,
+            text: text.text,
+            fontSize: text.font_size,
+            color: text.color
+          }];
+        });
+      },
+      onUpdate: (text: BulletinText) => {
+        setTextItems(prev => prev.map(t => t.id === text.id ? {
+          id: text.id,
+          x: text.x,
+          y: text.y,
+          text: text.text,
+          fontSize: text.font_size,
+          color: text.color
+        } : t));
+      },
+      onDelete: (id: number) => {
+        setTextItems(prev => prev.filter(t => t.id !== id));
+      },
+    });
+
+    return () => {
+      postItChannel.unsubscribe();
+      drawingChannel.unsubscribe();
+      textChannel.unsubscribe();
+    };
+  }, [flatCode]);
 
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;

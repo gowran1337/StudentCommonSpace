@@ -147,7 +147,7 @@ function GeneralChat() {
                     className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl flex-shrink-0 hover:scale-110 transition-transform cursor-pointer"
                     title={`Chatta med ${msg.user}`}
                   >
-                    {msg.profilePicture || '😀'}
+                    {msg.profilePicture?.startsWith('data:') ? '😀' : (msg.profilePicture || '😀')}
                   </button>
                 )}
                 <div
@@ -186,7 +186,7 @@ function GeneralChat() {
                 </div>
                 {msg.user_id === user?.id && (
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl flex-shrink-0">
-                    {msg.profilePicture || '😀'}
+                    {msg.profilePicture?.startsWith('data:') ? '😀' : (msg.profilePicture || '😀')}
                   </div>
                 )}
               </div>
