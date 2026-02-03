@@ -1,8 +1,16 @@
 import { supabase } from '../lib/supabase';
+import { cacheGet, cacheSet, cacheRemove } from '../utils/cache';
 
 // Helper function to get current user's flat code
 const getUserFlatCode = (): string | null => {
   return localStorage.getItem('flatCode');
+};
+
+// Cache settings
+const CACHE_TTL_MINUTES = 5;
+
+const makeCacheKey = (flatCode: string, resource: string): string => {
+  return `cache:${flatCode}:${resource}`;
 };
 
 export interface CleaningTask {
@@ -35,7 +43,11 @@ export const cleaningTasksApi = {
   getAll: async (): Promise<CleaningTask[]> => {
     const flatCode = getUserFlatCode();
     if (!flatCode) return [];
-    
+
+    const key = makeCacheKey(flatCode, 'cleaning_tasks');
+    const cached = cacheGet<CleaningTask[]>(key);
+    if (cached) return cached;
+
     const { data, error } = await supabase
       .from('cleaning_tasks')
       .select('*')
@@ -43,13 +55,16 @@ export const cleaningTasksApi = {
       .order('id', { ascending: true });
 
     if (error) throw error;
-    return data || [];
+
+    const result = data || [];
+    cacheSet(key, result, CACHE_TTL_MINUTES);
+    return result;
   },
 
   create: async (task: Omit<CleaningTask, 'id'>): Promise<CleaningTask> => {
     const flatCode = getUserFlatCode();
     if (!flatCode) throw new Error('No flat code found');
-    
+
     const { data, error } = await supabase
       .from('cleaning_tasks')
       .insert([{ ...task, flat_code: flatCode }])
@@ -57,6 +72,8 @@ export const cleaningTasksApi = {
       .single();
 
     if (error) throw error;
+
+    cacheRemove(makeCacheKey(flatCode, 'cleaning_tasks'));
     return data;
   },
 
@@ -67,6 +84,9 @@ export const cleaningTasksApi = {
       .eq('id', id);
 
     if (error) throw error;
+
+    const flatCode = getUserFlatCode();
+    if (flatCode) cacheRemove(makeCacheKey(flatCode, 'cleaning_tasks'));
   },
 
   delete: async (id: number): Promise<void> => {
@@ -76,6 +96,9 @@ export const cleaningTasksApi = {
       .eq('id', id);
 
     if (error) throw error;
+
+    const flatCode = getUserFlatCode();
+    if (flatCode) cacheRemove(makeCacheKey(flatCode, 'cleaning_tasks'));
   },
 };
 
@@ -84,7 +107,11 @@ export const cleaningScheduleApi = {
   getAll: async (): Promise<CleaningScheduleItem[]> => {
     const flatCode = getUserFlatCode();
     if (!flatCode) return [];
-    
+
+    const key = makeCacheKey(flatCode, 'cleaning_schedule');
+    const cached = cacheGet<CleaningScheduleItem[]>(key);
+    if (cached) return cached;
+
     const { data, error } = await supabase
       .from('cleaning_schedule')
       .select('*')
@@ -92,13 +119,16 @@ export const cleaningScheduleApi = {
       .order('id', { ascending: true });
 
     if (error) throw error;
-    return data || [];
+
+    const result = data || [];
+    cacheSet(key, result, CACHE_TTL_MINUTES);
+    return result;
   },
 
   create: async (item: Omit<CleaningScheduleItem, 'id'>): Promise<CleaningScheduleItem> => {
     const flatCode = getUserFlatCode();
     if (!flatCode) throw new Error('No flat code found');
-    
+
     const { data, error } = await supabase
       .from('cleaning_schedule')
       .insert([{ ...item, flat_code: flatCode }])
@@ -106,6 +136,8 @@ export const cleaningScheduleApi = {
       .single();
 
     if (error) throw error;
+
+    cacheRemove(makeCacheKey(flatCode, 'cleaning_schedule'));
     return data;
   },
 
@@ -116,6 +148,9 @@ export const cleaningScheduleApi = {
       .eq('id', id);
 
     if (error) throw error;
+
+    const flatCode = getUserFlatCode();
+    if (flatCode) cacheRemove(makeCacheKey(flatCode, 'cleaning_schedule'));
   },
 
   delete: async (id: number): Promise<void> => {
@@ -125,6 +160,9 @@ export const cleaningScheduleApi = {
       .eq('id', id);
 
     if (error) throw error;
+
+    const flatCode = getUserFlatCode();
+    if (flatCode) cacheRemove(makeCacheKey(flatCode, 'cleaning_schedule'));
   },
 };
 
@@ -133,7 +171,11 @@ export const shoppingListApi = {
   getAll: async (): Promise<ShoppingItem[]> => {
     const flatCode = getUserFlatCode();
     if (!flatCode) return [];
-    
+
+    const key = makeCacheKey(flatCode, 'shopping_list');
+    const cached = cacheGet<ShoppingItem[]>(key);
+    if (cached) return cached;
+
     const { data, error } = await supabase
       .from('shopping_list')
       .select('*')
@@ -141,32 +183,50 @@ export const shoppingListApi = {
       .order('id', { ascending: true });
 
     if (error) throw error;
-    return (data || []).map((item: { id: number; item: string; quantity: string; purchased: boolean; added_by: string }) => ({
-      id: item.id,
-      item: item.item,
-      quantity: item.quantity,
-      purchased: item.purchased,
-      addedBy: item.added_by,
-    }));
+
+  type ShoppingRow = {
+    id: number;
+    item: string;
+    quantity: string;
+    purchased: boolean;
+    added_by: string;
+  };
+
+  const mapped = ((data || []) as ShoppingRow[]).map((row) => ({
+    id: row.id,
+    item: row.item,
+    quantity: row.quantity,
+    purchased: row.purchased,
+    addedBy: row.added_by,
+  }));
+
+
+    cacheSet(key, mapped, CACHE_TTL_MINUTES);
+    return mapped;
   },
 
   create: async (item: Omit<ShoppingItem, 'id'>): Promise<ShoppingItem> => {
     const flatCode = getUserFlatCode();
     if (!flatCode) throw new Error('No flat code found');
-    
+
     const { data, error } = await supabase
       .from('shopping_list')
-      .insert([{
-        item: item.item,
-        quantity: item.quantity,
-        purchased: item.purchased,
-        added_by: item.addedBy,
-        flat_code: flatCode,
-      }])
+      .insert([
+        {
+          item: item.item,
+          quantity: item.quantity,
+          purchased: item.purchased,
+          added_by: item.addedBy,
+          flat_code: flatCode,
+        },
+      ])
       .select()
       .single();
 
     if (error) throw error;
+
+    cacheRemove(makeCacheKey(flatCode, 'shopping_list'));
+
     return {
       id: data.id,
       item: data.item,
@@ -188,15 +248,18 @@ export const shoppingListApi = {
       .eq('id', id);
 
     if (error) throw error;
+
+    const flatCode = getUserFlatCode();
+    if (flatCode) cacheRemove(makeCacheKey(flatCode, 'shopping_list'));
   },
 
   delete: async (id: number): Promise<void> => {
-    const { error } = await supabase
-      .from('shopping_list')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.from('shopping_list').delete().eq('id', id);
 
     if (error) throw error;
+
+    const flatCode = getUserFlatCode();
+    if (flatCode) cacheRemove(makeCacheKey(flatCode, 'shopping_list'));
   },
 };
 
@@ -232,7 +295,11 @@ export const bulletinPostItsApi = {
   getAll: async (): Promise<BulletinPostIt[]> => {
     const flatCode = getUserFlatCode();
     if (!flatCode) return [];
-    
+
+    const key = makeCacheKey(flatCode, 'bulletin_postits');
+    const cached = cacheGet<BulletinPostIt[]>(key);
+    if (cached) return cached;
+
     const { data, error } = await supabase
       .from('bulletin_postits')
       .select('*')
@@ -240,13 +307,16 @@ export const bulletinPostItsApi = {
       .order('id', { ascending: true });
 
     if (error) throw error;
-    return data || [];
+
+    const result = data || [];
+    cacheSet(key, result, CACHE_TTL_MINUTES);
+    return result;
   },
 
   create: async (postit: Omit<BulletinPostIt, 'id'>): Promise<BulletinPostIt> => {
     const flatCode = getUserFlatCode();
     if (!flatCode) throw new Error('No flat code found');
-    
+
     const { data, error } = await supabase
       .from('bulletin_postits')
       .insert([{ ...postit, flat_code: flatCode }])
@@ -254,25 +324,27 @@ export const bulletinPostItsApi = {
       .single();
 
     if (error) throw error;
+
+    cacheRemove(makeCacheKey(flatCode, 'bulletin_postits'));
     return data;
   },
 
   update: async (id: number, postit: BulletinPostIt): Promise<void> => {
-    const { error } = await supabase
-      .from('bulletin_postits')
-      .update(postit)
-      .eq('id', id);
+    const { error } = await supabase.from('bulletin_postits').update(postit).eq('id', id);
 
     if (error) throw error;
+
+    const flatCode = getUserFlatCode();
+    if (flatCode) cacheRemove(makeCacheKey(flatCode, 'bulletin_postits'));
   },
 
   delete: async (id: number): Promise<void> => {
-    const { error } = await supabase
-      .from('bulletin_postits')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.from('bulletin_postits').delete().eq('id', id);
 
     if (error) throw error;
+
+    const flatCode = getUserFlatCode();
+    if (flatCode) cacheRemove(makeCacheKey(flatCode, 'bulletin_postits'));
   },
 };
 
@@ -281,7 +353,11 @@ export const bulletinDrawingsApi = {
   getAll: async (): Promise<BulletinDrawing[]> => {
     const flatCode = getUserFlatCode();
     if (!flatCode) return [];
-    
+
+    const key = makeCacheKey(flatCode, 'bulletin_drawings');
+    const cached = cacheGet<BulletinDrawing[]>(key);
+    if (cached) return cached;
+
     const { data, error } = await supabase
       .from('bulletin_drawings')
       .select('*')
@@ -289,13 +365,16 @@ export const bulletinDrawingsApi = {
       .order('id', { ascending: true });
 
     if (error) throw error;
-    return data || [];
+
+    const result = data || [];
+    cacheSet(key, result, CACHE_TTL_MINUTES);
+    return result;
   },
 
   create: async (drawing: Omit<BulletinDrawing, 'id'>): Promise<BulletinDrawing> => {
     const flatCode = getUserFlatCode();
     if (!flatCode) throw new Error('No flat code found');
-    
+
     const { data, error } = await supabase
       .from('bulletin_drawings')
       .insert([{ ...drawing, flat_code: flatCode }])
@@ -303,16 +382,18 @@ export const bulletinDrawingsApi = {
       .single();
 
     if (error) throw error;
+
+    cacheRemove(makeCacheKey(flatCode, 'bulletin_drawings'));
     return data;
   },
 
   delete: async (id: number): Promise<void> => {
-    const { error } = await supabase
-      .from('bulletin_drawings')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.from('bulletin_drawings').delete().eq('id', id);
 
     if (error) throw error;
+
+    const flatCode = getUserFlatCode();
+    if (flatCode) cacheRemove(makeCacheKey(flatCode, 'bulletin_drawings'));
   },
 };
 
@@ -321,7 +402,11 @@ export const bulletinTextApi = {
   getAll: async (): Promise<BulletinText[]> => {
     const flatCode = getUserFlatCode();
     if (!flatCode) return [];
-    
+
+    const key = makeCacheKey(flatCode, 'bulletin_text');
+    const cached = cacheGet<BulletinText[]>(key);
+    if (cached) return cached;
+
     const { data, error } = await supabase
       .from('bulletin_text')
       .select('*')
@@ -329,13 +414,16 @@ export const bulletinTextApi = {
       .order('id', { ascending: true });
 
     if (error) throw error;
-    return data || [];
+
+    const result = data || [];
+    cacheSet(key, result, CACHE_TTL_MINUTES);
+    return result;
   },
 
   create: async (text: Omit<BulletinText, 'id'>): Promise<BulletinText> => {
     const flatCode = getUserFlatCode();
     if (!flatCode) throw new Error('No flat code found');
-    
+
     const { data, error } = await supabase
       .from('bulletin_text')
       .insert([{ ...text, flat_code: flatCode }])
@@ -343,25 +431,27 @@ export const bulletinTextApi = {
       .single();
 
     if (error) throw error;
+
+    cacheRemove(makeCacheKey(flatCode, 'bulletin_text'));
     return data;
   },
 
   update: async (id: number, text: BulletinText): Promise<void> => {
-    const { error } = await supabase
-      .from('bulletin_text')
-      .update(text)
-      .eq('id', id);
+    const { error } = await supabase.from('bulletin_text').update(text).eq('id', id);
 
     if (error) throw error;
+
+    const flatCode = getUserFlatCode();
+    if (flatCode) cacheRemove(makeCacheKey(flatCode, 'bulletin_text'));
   },
 
   delete: async (id: number): Promise<void> => {
-    const { error } = await supabase
-      .from('bulletin_text')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.from('bulletin_text').delete().eq('id', id);
 
     if (error) throw error;
+
+    const flatCode = getUserFlatCode();
+    if (flatCode) cacheRemove(makeCacheKey(flatCode, 'bulletin_text'));
   },
 };
 
@@ -377,10 +467,7 @@ export interface User {
 
 export const usersApi = {
   getAll: async (): Promise<User[]> => {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .order('email', { ascending: true });
+    const { data, error } = await supabase.from('users').select('*').order('email', { ascending: true });
 
     if (error) throw error;
     return data || [];
@@ -406,6 +493,16 @@ export interface RotationState {
 }
 
 // Cleaning Rotation API
+type RotationRow = {
+  id: number;
+  user_id: string;
+  order_position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type UserRow = User; // ni har redan User-interface
+
 export const cleaningRotationApi = {
   // Get all users in rotation order
   getRotation: async (): Promise<CleaningRotationUser[]> => {
@@ -423,9 +520,7 @@ export const cleaningRotationApi = {
     console.log('Raw rotation data:', rotationData);
 
     // Fetch all users
-    const { data: usersData, error: usersError } = await supabase
-      .from('users')
-      .select('*');
+    const { data: usersData, error: usersError } = await supabase.from('users').select('*');
 
     if (usersError) {
       console.error('Error fetching users:', usersError);
@@ -434,15 +529,24 @@ export const cleaningRotationApi = {
 
     console.log('All users data:', usersData);
 
-    // Manually join the data
-    const mapped = (rotationData || []).map((rotationItem: { id: number; user_id: string; order_position: number; created_at: string; updated_at: string }) => {
-      const user = (usersData || []).find((u: User) => u.id === rotationItem.user_id);
-      console.log(`Rotation item ${rotationItem.id} user_id: ${rotationItem.user_id}, found user:`, user);
+    const rotationRows = (rotationData || []) as RotationRow[];
+    const userRows = (usersData || []) as UserRow[];
+
+    const mapped: CleaningRotationUser[] = rotationRows.map((rotationItem) => {
+      const user = userRows.find((u) => u.id === rotationItem.user_id);
+
+      console.log(
+        `Rotation item ${rotationItem.id} user_id: ${rotationItem.user_id}, found user:`,
+        user
+      );
+
       return {
         ...rotationItem,
-        user: user || null
+        user,
       };
     });
+
+
 
     console.log('Mapped rotation data:', mapped);
     return mapped;
@@ -450,11 +554,7 @@ export const cleaningRotationApi = {
 
   // Get current rotation state
   getState: async (): Promise<RotationState | null> => {
-    const { data, error } = await supabase
-      .from('rotation_state')
-      .select('*')
-      .eq('id', 1)
-      .single();
+    const { data, error } = await supabase.from('rotation_state').select('*').eq('id', 1).single();
 
     if (error) {
       console.error('Error fetching rotation state:', error);
@@ -479,7 +579,7 @@ export const cleaningRotationApi = {
 
       const mapped = {
         ...data,
-        current_user: userData || null
+        current_user: userData || null,
       };
       console.log('Mapped rotation state:', mapped);
       return mapped;
@@ -502,10 +602,7 @@ export const cleaningRotationApi = {
 
   // Remove user from rotation
   removeFromRotation: async (id: number): Promise<void> => {
-    const { error } = await supabase
-      .from('cleaning_rotation')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.from('cleaning_rotation').delete().eq('id', id);
 
     if (error) throw error;
   },
@@ -570,47 +667,56 @@ export const expensesApi = {
   getAll: async (): Promise<Expense[]> => {
     const flatCode = getUserFlatCode();
     if (!flatCode) return [];
-    
+
+    const key = makeCacheKey(flatCode, 'expenses');
+    const cached = cacheGet<Expense[]>(key);
+    if (cached) return cached;
+
     const { data, error } = await supabase
       .from('expenses')
       .select('*')
       .eq('flat_code', flatCode)
       .order('date', { ascending: false });
-    
+
     if (error) throw error;
-    return data || [];
+
+    const result = data || [];
+    cacheSet(key, result, CACHE_TTL_MINUTES);
+    return result;
   },
-  
+
   create: async (expense: Omit<Expense, 'id' | 'created_at'>): Promise<Expense> => {
     const flatCode = getUserFlatCode();
     if (!flatCode) throw new Error('No flat code found');
-    
+
     const { data, error } = await supabase
       .from('expenses')
       .insert([{ ...expense, flat_code: flatCode }])
       .select()
       .single();
-    
+
     if (error) throw error;
+
+    cacheRemove(makeCacheKey(flatCode, 'expenses'));
     return data;
   },
-  
+
   update: async (id: number, expense: Partial<Expense>): Promise<void> => {
-    const { error } = await supabase
-      .from('expenses')
-      .update(expense)
-      .eq('id', id);
-    
+    const { error } = await supabase.from('expenses').update(expense).eq('id', id);
+
     if (error) throw error;
+
+    const flatCode = getUserFlatCode();
+    if (flatCode) cacheRemove(makeCacheKey(flatCode, 'expenses'));
   },
-  
+
   delete: async (id: number): Promise<void> => {
-    const { error } = await supabase
-      .from('expenses')
-      .delete()
-      .eq('id', id);
-    
+    const { error } = await supabase.from('expenses').delete().eq('id', id);
+
     if (error) throw error;
+
+    const flatCode = getUserFlatCode();
+    if (flatCode) cacheRemove(makeCacheKey(flatCode, 'expenses'));
   },
 };
 
@@ -619,38 +725,47 @@ export const settlementsApi = {
   getAll: async (): Promise<Settlement[]> => {
     const flatCode = getUserFlatCode();
     if (!flatCode) return [];
-    
+
+    const key = makeCacheKey(flatCode, 'settlements');
+    const cached = cacheGet<Settlement[]>(key);
+    if (cached) return cached;
+
     const { data, error } = await supabase
       .from('settlements')
       .select('*')
       .eq('flat_code', flatCode)
       .order('date', { ascending: false });
-    
+
     if (error) throw error;
-    return data || [];
+
+    const result = data || [];
+    cacheSet(key, result, CACHE_TTL_MINUTES);
+    return result;
   },
-  
+
   create: async (settlement: Omit<Settlement, 'id' | 'created_at'>): Promise<Settlement> => {
     const flatCode = getUserFlatCode();
     if (!flatCode) throw new Error('No flat code found');
-    
+
     const { data, error } = await supabase
       .from('settlements')
       .insert([{ ...settlement, flat_code: flatCode }])
       .select()
       .single();
-    
+
     if (error) throw error;
+
+    cacheRemove(makeCacheKey(flatCode, 'settlements'));
     return data;
   },
-  
+
   delete: async (id: number): Promise<void> => {
-    const { error } = await supabase
-      .from('settlements')
-      .delete()
-      .eq('id', id);
-    
+    const { error } = await supabase.from('settlements').delete().eq('id', id);
+
     if (error) throw error;
+
+    const flatCode = getUserFlatCode();
+    if (flatCode) cacheRemove(makeCacheKey(flatCode, 'settlements'));
   },
 };
 
