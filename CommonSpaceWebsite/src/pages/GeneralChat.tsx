@@ -38,13 +38,9 @@ function GeneralChat() {
         if (data) {
           const migratedPic = data.profile_picture?.startsWith('data:') ? '😀' : (data.profile_picture || '😀');
           setUserProfilePic(migratedPic);
-          setUsername(data.email?.split('@')[0] || 'Anonymous');
-        } else {
-          setUsername(user.email?.split('@')[0] || 'Anonymous');
         }
       } catch (err) {
         console.error('Error loading profile:', err);
-        setUsername(user.email?.split('@')[0] || 'Anonymous');
       }
     };
     
@@ -73,6 +69,8 @@ function GeneralChat() {
 
     if (user && flatCode) {
       loadMessages();
+    } else {
+      setLoading(false);
     }
 
     // Cleanup: Clear messages when component unmounts or user changes
