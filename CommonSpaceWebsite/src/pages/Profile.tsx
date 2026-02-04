@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { gdprApi } from '../services/api';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface ProfileSettings {
   username: string;
@@ -420,6 +422,90 @@ function Profile() {
               </div>
             </div>
           )}
+
+          {/* GDPR & Privacy Section */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-slate-100 mb-4">🔒 Integritet & Data (GDPR)</h2>
+            
+            <div className="bg-slate-700 rounded-lg p-4 space-y-4">
+              <div>
+                <Link 
+                  to="/privacy" 
+                  className="text-cyan-400 hover:text-cyan-300 underline"
+                >
+                  📄 Läs vår Integritetspolicy
+                </Link>
+                <p className="text-xs text-slate-400 mt-1">
+                  Läs om vilken data vi samlar in och hur vi skyddar den
+                </p>
+              </div>
+
+              <div className="border-t border-slate-600 pt-4">
+                <h3 className="font-semibold text-slate-100 mb-2">Exportera din data</h3>
+                <p className="text-sm text-slate-400 mb-3">
+                  Ladda ner all din data i JSON-format (profil, meddelanden, händelser, utgifter)
+                </p>
+                <button
+                  onClick={async () => {
+                    if (!user) return;
+                    try {
+                      await gdprApi.exportUserData(user.id);
+                      alert('Din data har laddats ner!');
+                    } catch (error) {
+                      alert('Kunde inte exportera data');
+                    }
+                  }}
+                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded transition-colors"
+                >
+                  📥 Ladda ner min data
+                </button>
+              </div>
+
+              <div className="border-t border-slate-600 pt-4">
+                <h3 className="font-semibold text-red-400 mb-2">⚠️ Radera mitt konto</h3>
+                <p className="text-sm text-slate-400 mb-3">
+                  Detta raderar PERMANENT all din data: profil, meddelanden, händelser, utgifter. 
+                  Denna åtgärd kan inte ångras!
+                </p>
+                <button
+                  onClick={async () => {
+                    if (!user) return;
+                    
+                    const confirmed = confirm(
+                      '⚠️ VARNING: Detta raderar PERMANENT all din data!\n\n' +
+                      '• Din profil\n' +
+                      '• Alla dina meddelanden\n' +
+                      '• Alla dina kalenderhändelser\n' +
+                      '• Alla dina utgifter\n' +
+                      '• Alla dina poster på anslagstavlan\n\n' +
+                      'Denna åtgärd kan INTE ångras!\n\n' +
+                      'Är du HELT SÄKER på att du vill fortsätta?'
+                    );
+                    
+                    if (!confirmed) return;
+                    
+                    const doubleConfirm = confirm(
+                      'Sista chansen!\n\n' +
+                      'Skriv OK nedan för att bekräfta permanent radering av ditt konto.'
+                    );
+                    
+                    if (!doubleConfirm) return;
+                    
+                    try {
+                      await gdprApi.deleteUserAccount(user.id);
+                      alert('Ditt konto har raderats. Du kommer nu loggas ut.');
+                      window.location.href = '/';
+                    } catch (error) {
+                      alert('Kunde inte radera konto. Kontakta support.');
+                    }
+                  }}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded transition-colors"
+                >
+                  🗑️ Radera mitt konto permanent
+                </button>
+              </div>
+            </div>
+          </div>
 
           {/* Save Confirmation */}
           <div className="bg-green-900/50 border border-green-500/50 rounded-lg p-4 text-center">

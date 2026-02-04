@@ -12,6 +12,7 @@ import GeneralChat from './pages/GeneralChat';
 import Profile from './pages/Profile';
 import TaskBoard from './pages/TaskBoard';
 import Expenses from './pages/Expenses';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 
 function AppContent() {
   const location = useLocation();
@@ -75,6 +76,14 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <Expenses />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/privacy"
+          element={
+            <ProtectedRoute>
+              <PrivacyPolicy />
             </ProtectedRoute>
           }
         />

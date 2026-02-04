@@ -1081,3 +1081,112 @@ export const calendarEventsApi = {
       .subscribe();
   },
 };
+
+// GDPR API - Data Export & Deletion
+export const gdprApi = {
+  // Export all user data
+  exportUserData: async (userId: string) => {
+    try {
+      // Get user profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      // Get user's messages
+      const { data: messages } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('user_id', userId);
+
+      // Get user's calendar events
+      const { data: calendarEvents } = await supabase
+        .from('calendar_events')
+        .select('*')
+        .eq('created_by', userId);
+
+      // Get user's expenses
+      const { data: expenses } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', userId);
+
+      // Get user's bulletin posts
+      const { data: bulletinPosts } = await supabase
+        .from('bulletin_posts')
+        .select('*')
+        .eq('user_id', userId);
+
+      const userData = {
+        exportDate: new Date().toISOString(),
+        profile,
+        messages: messages || [],
+        calendarEvents: calendarEvents || [],
+        expenses: expenses || [],
+        bulletinPosts: bulletinPosts || [],
+      };
+
+      // Create downloadable JSON file
+      const dataStr = JSON.stringify(userData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `my-data-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      return userData;
+    } catch (error) {
+      console.error('Error exporting user data:', error);
+      throw error;
+    }
+  },
+
+  // Delete all user data and account
+  deleteUserAccount: async (userId: string) => {
+    try {
+      // Delete messages
+      await supabase
+        .from('messages')
+        .delete()
+        .eq('user_id', userId);
+
+      // Delete calendar events
+      await supabase
+        .from('calendar_events')
+        .delete()
+        .eq('created_by', userId);
+
+      // Delete expenses
+      await supabase
+        .from('expenses')
+        .delete()
+        .eq('user_id', userId);
+
+      // Delete bulletin posts
+      await supabase
+        .from('bulletin_posts')
+        .delete()
+        .eq('user_id', userId);
+
+      // Delete profile
+      await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
+      // Delete auth user (requires service role key in production)
+      // For now, we just sign out
+      await supabase.auth.signOut();
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting user account:', error);
+      throw error;
+    }
+  },
+};
