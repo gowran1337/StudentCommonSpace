@@ -8,7 +8,6 @@ import Calendar from './pages/Calendar';
 import BulletinBoard from './pages/BulletinBoard';
 import DrawBoard from './pages/DrawBoard';
 import GeneralChat from './pages/GeneralChat';
-import DirectMessages from './pages/DirectMessages';
 import Profile from './pages/Profile';
 import TaskBoard from './pages/TaskBoard';
 import Expenses from './pages/Expenses';
@@ -58,14 +57,6 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <GeneralChat />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/directmessages"
-          element={
-            <ProtectedRoute>
-              <DirectMessages />
             </ProtectedRoute>
           }
         />

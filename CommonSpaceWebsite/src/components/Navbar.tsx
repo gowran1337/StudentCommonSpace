@@ -77,16 +77,6 @@ const Navbar = () => {
                     </li>
                     <li>
                         <NavLink
-                            to="/directmessages"
-                            className={({ isActive }) =>
-                                isActive ? 'text-purple-400 font-medium' : 'text-slate-300 hover:text-purple-400 transition'
-                            }
-                        >
-                            📨 Messages
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink
                             to="/profile"
                             className={({ isActive }) =>
                                 isActive ? 'text-purple-400 font-medium' : 'text-slate-300 hover:text-purple-400 transition'
