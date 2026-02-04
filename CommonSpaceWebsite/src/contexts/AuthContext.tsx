@@ -77,6 +77,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const signOut = async () => {
+        // Clear all user-specific localStorage data
+        localStorage.removeItem('flatCode');
+        localStorage.removeItem('profileSettings');
+        localStorage.removeItem('rememberedEmail');
+        localStorage.removeItem('rememberedPassword');
+        
         await supabase.auth.signOut();
     };
 

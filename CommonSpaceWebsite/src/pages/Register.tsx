@@ -1,14 +1,24 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 const defaultProfilePics = ['😀', '😎', '🤓', '🤖', '👽', '🦄', '🐱', '🐶', '🐼', '🦊'];
+
+// Generate a unique flat code in Google Meet style
+const generateFlatCode = (): string => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const part1 = Array.from({ length: 3 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  const part2 = Array.from({ length: 3 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  const part3 = Array.from({ length: 3 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `${part1}-${part2}-${part3}`;
+};
 
 function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [flatCode, setFlatCode] = useState('');
+  const [isCreatingNewFlat, setIsCreatingNewFlat] = useState(true);
   const [profilePicture, setProfilePicture] = useState('😀');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,12 +35,6 @@ function Register() {
       return;
     }
 
-    if (!flatCode || flatCode.trim().length < 3) {
-      setError('Ange en giltig lägenhetskod (minst 3 tecken)');
-      setLoading(false);
-      return;
-    }
-
     if (password !== confirmPassword) {
       setError('Lösenorden matchar inte');
       setLoading(false);
@@ -43,6 +47,38 @@ function Register() {
       return;
     }
 
+    // Generate or validate flat code
+    let finalFlatCode = flatCode.trim().toUpperCase();
+    if (isCreatingNewFlat) {
+      // Generate a new unique code
+      finalFlatCode = generateFlatCode();
+      
+      // Check if code already exists (rare collision)
+      let isUnique = false;
+      let attempts = 0;
+      while (!isUnique && attempts < 5) {
+        const { data: existing } = await supabase
+          .from('profiles')
+          .select('flat_code')
+          .eq('flat_code', finalFlatCode)
+          .limit(1);
+        
+        if (!existing || existing.length === 0) {
+          isUnique = true;
+        } else {
+          finalFlatCode = generateFlatCode();
+          attempts++;
+        }
+      }
+    } else {
+      // Joining existing flat - validate code exists
+      if (!finalFlatCode || finalFlatCode.length < 3) {
+        setError('Ange en giltig lägenhetskod');
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       // Sign up with Supabase and include flat_code in metadata
       const { data, error: signUpError } = await supabase.auth.signUp({
@@ -50,7 +86,7 @@ function Register() {
         password,
         options: {
           data: {
-            flat_code: flatCode.trim().toUpperCase(),
+            flat_code: finalFlatCode,
             profile_picture: profilePicture
           }
         }
@@ -68,7 +104,8 @@ function Register() {
           .from('profiles')
           .update({
             profile_picture: profilePicture,
-            flat_code: flatCode.trim().toUpperCase()
+            flat_code: finalFlatCode,
+            is_admin: isCreatingNewFlat // First person creating flat becomes admin
           })
           .eq('id', data.user.id);
 
@@ -77,8 +114,13 @@ function Register() {
           // Don't show error to user as profile was created by trigger
         }
 
+        // Show success message with the code if creating new flat
+        if (isCreatingNewFlat) {
+          alert(`Din lägenhetskod: ${finalFlatCode}\n\nDu är nu admin för denna lägenhet.\nDela denna kod med dina rumskamrater!`);
+        }
+
         // Navigate to login
-        navigate('/login');
+        navigate('/');
       }
     } catch (err) {
       setError('Ett oväntat fel uppstod');
@@ -119,25 +161,63 @@ function Register() {
           </div>
           
           <div>
-            <label htmlFor="flatCode" className="block text-sm font-medium text-slate-300 mb-2">
-              Lägenhetskod
+            <label className="block text-sm font-medium text-slate-300 mb-3">
+              Lägenhet
             </label>
-            <input
-              type="text"
-              id="flatCode"
-              value={flatCode}
-              onChange={(e) => {
-                setFlatCode(e.target.value);
-                setError('');
-              }}
-              placeholder="T.ex. FLAT101 eller ROOM5A"
-              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:border-purple-400 transition uppercase"
-              disabled={loading}
-            />
-            <p className="text-xs text-slate-400 mt-1">
-              Dela samma kod med dina rumskamrater
-            </p>
+            <div className="space-y-3">
+              <label className="flex items-center p-3 bg-slate-700 border border-slate-600 rounded cursor-pointer hover:border-purple-400 transition">
+                <input
+                  type="radio"
+                  checked={isCreatingNewFlat}
+                  onChange={() => setIsCreatingNewFlat(true)}
+                  className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                  disabled={loading}
+                />
+                <div className="ml-3">
+                  <div className="text-white font-medium">Skapa ny lägenhet</div>
+                  <div className="text-xs text-slate-400">Generera en unik kod automatiskt</div>
+                </div>
+              </label>
+              
+              <label className="flex items-center p-3 bg-slate-700 border border-slate-600 rounded cursor-pointer hover:border-purple-400 transition">
+                <input
+                  type="radio"
+                  checked={!isCreatingNewFlat}
+                  onChange={() => setIsCreatingNewFlat(false)}
+                  className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                  disabled={loading}
+                />
+                <div className="ml-3">
+                  <div className="text-white font-medium">Gå med i befintlig lägenhet</div>
+                  <div className="text-xs text-slate-400">Ange kod från rumskamrat</div>
+                </div>
+              </label>
+            </div>
           </div>
+
+          {!isCreatingNewFlat && (
+            <div>
+              <label htmlFor="flatCode" className="block text-sm font-medium text-slate-300 mb-2">
+                Lägenhetskod *
+              </label>
+              <input
+                type="text"
+                id="flatCode"
+                value={flatCode}
+                onChange={(e) => {
+                  setFlatCode(e.target.value);
+                  setError('');
+                }}
+                placeholder="ABC-DEF-GHI"
+                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:border-purple-400 transition uppercase"
+                disabled={loading}
+                required
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                Ange koden du fått från en rumskamrat
+              </p>
+            </div>
+          )}
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
@@ -206,12 +286,12 @@ function Register() {
         
         <p className="mt-4 text-center text-sm text-slate-400">
           Har du redan ett konto?{' '}
-          <button
-            onClick={() => navigate('/')}
-            className="text-purple-400 hover:text-purple-300 underline"
+          <Link
+            to="/"
+            className="text-purple-400 hover:text-purple-300 font-medium"
           >
             Logga in här
-          </button>
+          </Link>
         </p>
       </div>
     </div>
