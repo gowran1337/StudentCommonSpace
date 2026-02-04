@@ -5,10 +5,7 @@ import { gdprApi } from '../services/api';
 import { Link, useNavigate } from 'react-router-dom';
 
 interface ProfileSettings {
-  username: string;
   profilePicture: string;
-  quote: string;
-  backgroundImage: string;
   theme: 'dark' | 'purple' | 'blue' | 'green';
   flatCode?: string;
 }
@@ -64,19 +61,83 @@ function Profile() {
     }
   };
 
+  // Generate flat code
+  const generateFlatCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const part1 = Array.from({ length: 3 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const part2 = Array.from({ length: 3 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const part3 = Array.from({ length: 3 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    return `${part1}-${part2}-${part3}`;
+  };
+
+  const handleGenerateFlatCode = async () => {
+    if (!user) return;
+    
+    const confirmed = confirm(
+      'Är du säker på att du vill generera en ny lägenhetskod?\n\n' +
+      'Detta kommer att:\n' +
+      '• Skapa en ny lägenhet\n' +
+      '• Göra dig till admin\n' +
+      '• Ta bort dig från din nuvarande lägenhet (om du har en)\n\n' +
+      'Fortsätt?'
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      let newCode = generateFlatCode();
+      let attempts = 0;
+      const maxAttempts = 5;
+
+      // Check for collision
+      while (attempts < maxAttempts) {
+        const { data: existing } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('flat_code', newCode)
+          .single();
+
+        if (!existing) break;
+        newCode = generateFlatCode();
+        attempts++;
+      }
+
+      if (attempts === maxAttempts) {
+        alert('Kunde inte generera en unik kod. Försök igen.');
+        return;
+      }
+
+      // Update profile with new flat code and set as admin
+      await supabase
+        .from('profiles')
+        .update({ 
+          flat_code: newCode,
+          is_admin: true
+        })
+        .eq('id', user.id);
+
+      setSettings({ ...settings, flatCode: newCode });
+      setIsAdmin(true);
+      localStorage.setItem('flatCode', newCode);
+
+      alert(
+        `Din nya lägenhetskod är: ${newCode}\n\n` +
+        'Du är nu admin för denna lägenhet.\n' +
+        'Dela denna kod med dina rumskamrater!'
+      );
+    } catch (error) {
+      console.error('Error generating flat code:', error);
+      alert('Kunde inte generera lägenhetskod. Försök igen.');
+    }
+  };
+
   const initialSettings: ProfileSettings = {
-    username: '',
     profilePicture: '😀',
-    quote: '',
-    backgroundImage: '',
     theme: 'dark',
     flatCode: '',
   };
 
   const [settings, setSettings] = useState<ProfileSettings>(initialSettings);
-
-  const [isEditingQuote, setIsEditingQuote] = useState(false);
-  const [tempQuote, setTempQuote] = useState('');
 
   // Load profile from Supabase on mount
   useEffect(() => {
@@ -103,11 +164,8 @@ function Profile() {
             : (data.profile_picture || '😀');
           
           const loadedSettings: ProfileSettings = {
-            username: data.email?.split('@')[0] || '',
             profilePicture: migratedProfilePic,
-            quote: '',
-            backgroundImage: '',
-            theme: 'dark',
+            theme: (data.theme as ProfileSettings['theme']) || 'dark',
             flatCode: data.flat_code || '',
           };
           
@@ -145,37 +203,32 @@ function Profile() {
     localStorage.setItem('flatCode', settings.flatCode || '');
     
     document.body.className = `bg-${themes[settings.theme].bg}`;
-  }, [settings, loading]);
-
-  const handleBackgroundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setSettings({ ...settings, backgroundImage: result });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const saveQuote = () => {
-    setSettings({ ...settings, quote: tempQuote });
-    setIsEditingQuote(false);
-  };
+    
+    // Save to Supabase
+    const saveToSupabase = async () => {
+      if (!user) return;
+      
+      try {
+        await supabase
+          .from('profiles')
+          .update({ 
+            profile_picture: settings.profilePicture,
+            flat_code: settings.flatCode || null,
+            theme: settings.theme
+          })
+          .eq('id', user.id);
+      } catch (err) {
+        console.error('Error saving profile to Supabase:', err);
+      }
+    };
+    
+    saveToSupabase();
+  }, [settings, loading, user]);
 
   const currentTheme = themes[settings.theme];
 
   return (
-    <div 
-      className={`min-h-screen bg-${currentTheme.bg} p-6`}
-      style={{
-        backgroundImage: settings.backgroundImage ? `url(${settings.backgroundImage})` : 'none',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed',
-      }}
-    >
+    <div className={`min-h-screen bg-${currentTheme.bg} p-6`}>
       <div className="max-w-4xl mx-auto">
         <div className={`bg-${currentTheme.card} bg-opacity-95 backdrop-blur-sm rounded-lg shadow-xl p-8 border border-${currentTheme.primary}-500/20`}>
           <h1 className={`text-3xl font-bold text-${currentTheme.primary}-400 mb-6`}>👤 Min Profil</h1>
@@ -209,18 +262,6 @@ function Profile() {
             </div>
           </div>
 
-          {/* Username Section */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-slate-100 mb-4">Användarnamn</h2>
-            <input
-              type="text"
-              value={settings.username}
-              onChange={(e) => setSettings({ ...settings, username: e.target.value })}
-              placeholder="Ange ditt namn..."
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-slate-100 placeholder-slate-400 focus:outline-none focus:border-purple-400"
-            />
-          </div>
-
           {/* Flat Code Section */}
           <div className="mb-8">
             <h2 className="text-xl font-semibold text-slate-100 mb-4">Lägenhetskod</h2>
@@ -228,21 +269,30 @@ function Profile() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex-1">
                   <p className="text-slate-300 text-sm mb-2">Din lägenhetskod:</p>
-                  <input
-                    type="text"
-                    value={settings.flatCode || ''}
-                    onChange={(e) => {
-                      const newCode = e.target.value.toUpperCase();
-                      setSettings({ ...settings, flatCode: newCode });
-                      localStorage.setItem('flatCode', newCode);
-                    }}
-                    onBlur={(e) => {
-                      const newCode = e.target.value.toUpperCase();
-                      saveFlatCodeToSupabase(newCode);
-                    }}
-                    placeholder="Ange lägenhetskod..."
-                    className={`w-full bg-slate-600 border border-slate-500 rounded-lg px-4 py-3 text-2xl font-bold text-${currentTheme.primary}-400 placeholder-slate-400 focus:outline-none focus:border-${currentTheme.primary}-400 uppercase tracking-widest`}
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={settings.flatCode || ''}
+                      onChange={(e) => {
+                        const newCode = e.target.value.toUpperCase();
+                        setSettings({ ...settings, flatCode: newCode });
+                        localStorage.setItem('flatCode', newCode);
+                      }}
+                      onBlur={(e) => {
+                        const newCode = e.target.value.toUpperCase();
+                        saveFlatCodeToSupabase(newCode);
+                      }}
+                      placeholder="Ange lägenhetskod..."
+                      className={`flex-1 bg-slate-600 border border-slate-500 rounded-lg px-4 py-3 text-2xl font-bold text-${currentTheme.primary}-400 placeholder-slate-400 focus:outline-none focus:border-${currentTheme.primary}-400 uppercase tracking-widest`}
+                    />
+                    <button
+                      onClick={handleGenerateFlatCode}
+                      className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-semibold transition-colors whitespace-nowrap"
+                      title="Generera ny lägenhetskod"
+                    >
+                      🎲 Generera
+                    </button>
+                  </div>
                 </div>
                 <div className="text-4xl ml-4">🏠</div>
               </div>
@@ -254,77 +304,6 @@ function Profile() {
           </div>
 
           {/* v>
-
-          {/* Quote Section */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-slate-100 mb-4">Din Quote</h2>
-            {isEditingQuote ? (
-              <div>
-                <textarea
-                  value={tempQuote}
-                  onChange={(e) => setTempQuote(e.target.value)}
-                  placeholder="Skriv din favoritquote..."
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-slate-100 placeholder-slate-400 focus:outline-none focus:border-purple-400 min-h-[100px]"
-                  maxLength={200}
-                />
-                <div className="flex gap-2 mt-2">
-                  <button
-                    onClick={saveQuote}
-                    className={`bg-${currentTheme.primary}-600 hover:bg-${currentTheme.primary}-700 text-white px-4 py-2 rounded-lg transition-colors`}
-                  >
-                    Spara
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsEditingQuote(false);
-                      setTempQuote(settings.quote);
-                    }}
-                    className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-colors"
-                  >
-                    Avbryt
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div
-                className="bg-slate-700 rounded-lg p-4 cursor-pointer hover:bg-slate-600 transition-colors"
-                onClick={() => {
-                  setTempQuote(settings.quote);
-                  setIsEditingQuote(true);
-                }}
-              >
-                {settings.quote ? (
-                  <p className="text-slate-100 italic">"{settings.quote}"</p>
-                ) : (
-                  <p className="text-slate-400">Klicka för att lägga till en quote...</p>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Background Image Section */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-slate-100 mb-4">Bakgrundsbild</h2>
-            <div className="flex gap-4">
-              <label className={`bg-${currentTheme.primary}-600 hover:bg-${currentTheme.primary}-700 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors`}>
-                Ladda upp bakgrund
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleBackgroundUpload}
-                  className="hidden"
-                />
-              </label>
-              {settings.backgroundImage && (
-                <button
-                  onClick={() => setSettings({ ...settings, backgroundImage: '' })}
-                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
-                >
-                  Ta bort bakgrund
-                </button>
-              )}
-            </div>
-          </div>
 
           {/* Theme Section */}
           <div className="mb-8">
