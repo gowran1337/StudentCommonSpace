@@ -16,7 +16,6 @@ interface Message {
 function GeneralChat() {
   const { user, flatCode } = useAuth();
   const [userProfilePic, setUserProfilePic] = useState('😀');
-  const [username, setUsername] = useState('Anonymous');
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
