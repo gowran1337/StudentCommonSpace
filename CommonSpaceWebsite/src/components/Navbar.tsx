@@ -55,16 +55,7 @@ const Navbar = () => {
                             💰 Expenses
                         </NavLink>
                     </li>
-                    <li>
-                        <NavLink
-                            to="/drawboard"
-                            className={({ isActive }) =>
-                                isActive ? 'text-purple-400 font-medium' : 'text-slate-300 hover:text-purple-400 transition'
-                            }
-                        >
-                            🎨 Draw Board
-                        </NavLink>
-                    </li>
+
                     <li>
                         <NavLink
                             to="/generalchat"

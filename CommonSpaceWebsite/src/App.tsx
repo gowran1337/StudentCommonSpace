@@ -6,7 +6,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Calendar from './pages/Calendar';
 import BulletinBoard from './pages/BulletinBoard';
-import DrawBoard from './pages/DrawBoard';
+
 import GeneralChat from './pages/GeneralChat';
 import Profile from './pages/Profile';
 import TaskBoard from './pages/TaskBoard';
@@ -44,14 +44,7 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/drawboard"
-          element={
-            <ProtectedRoute>
-              <DrawBoard />
-            </ProtectedRoute>
-          }
-        />
+
         <Route
           path="/generalchat"
           element={
