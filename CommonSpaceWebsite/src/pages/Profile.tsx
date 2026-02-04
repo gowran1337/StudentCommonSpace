@@ -41,8 +41,9 @@ const defaultProfilePics = [
 
 function Profile() {
   const { user } = useAuth();
-  const savedSettings = localStorage.getItem('profileSettings');
-  const flatCode = localStorage.getItem('flatCode') || '';
+  const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [flatMembers, setFlatMembers] = useState<Array<{id: string, email: string, profile_picture: string, is_admin: boolean}>>([]);
 
   // Save flat code to Supabase
   const saveFlatCodeToSupabase = async (code: string) => {
@@ -61,22 +62,13 @@ function Profile() {
     }
   };
 
-  // Parse saved settings and migrate old data URLs to emoji
-  const parsedSettings = savedSettings ? JSON.parse(savedSettings) : null;
-  const migratedProfilePicture = parsedSettings?.profilePicture?.startsWith('data:') 
-    ? '😀' 
-    : (parsedSettings?.profilePicture || '😀');
-
-  const initialSettings: ProfileSettings = parsedSettings ? {
-    ...parsedSettings,
-    profilePicture: migratedProfilePicture,
-  } : {
+  const initialSettings: ProfileSettings = {
     username: '',
     profilePicture: '😀',
     quote: '',
     backgroundImage: '',
     theme: 'dark',
-    flatCode: flatCode,
+    flatCode: '',
   };
 
   const [settings, setSettings] = useState<ProfileSettings>(initialSettings);
@@ -84,34 +76,74 @@ function Profile() {
   const [isEditingQuote, setIsEditingQuote] = useState(false);
   const [tempQuote, setTempQuote] = useState('');
 
+  // Load profile from Supabase on mount
   useEffect(() => {
-    localStorage.setItem('profileSettings', JSON.stringify(settings));
-    localStorage.setItem('username', settings.username);
+    const loadProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        if (error) {
+          console.error('Error loading profile:', error);
+          setLoading(false);
+          return;
+        }
+        
+        if (data) {
+          // Migrate old data URLs to emoji
+          const migratedProfilePic = data.profile_picture?.startsWith('data:') 
+            ? '😀' 
+            : (data.profile_picture || '😀');
+          
+          const loadedSettings: ProfileSettings = {
+            username: data.email?.split('@')[0] || '',
+            profilePicture: migratedProfilePic,
+            quote: '',
+            backgroundImage: '',
+            theme: 'dark',
+            flatCode: data.flat_code || '',
+          };
+          
+          setSettings(loadedSettings);
+          setIsAdmin(data.is_admin || false);
+          localStorage.setItem('profileSettings', JSON.stringify(loadedSettings));
+          localStorage.setItem('flatCode', data.flat_code || '');
+          
+          // Load flat members if admin
+          if (data.is_admin && data.flat_code) {
+            const { data: members } = await supabase
+              .from('profiles')
+              .select('id, email, profile_picture, is_admin')
+              .eq('flat_code', data.flat_code);
+            
+            if (members) {
+              setFlatMembers(members);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error loading profile:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    // Also update in users list
-    const currentUser = localStorage.getItem('currentUser');
-    if (currentUser) {
-      const usersJson = localStorage.getItem('users');
-      interface UserInList {
-        username: string;
-        profilePicture: string;
-        quote?: string;
-      }
-      const users: UserInList[] = usersJson ? JSON.parse(usersJson) : [];
-      const userIndex = users.findIndex((u) => u.username === currentUser);
-      
-      if (userIndex !== -1) {
-        users[userIndex].profilePicture = settings.profilePicture;
-        users[userIndex].quote = settings.quote;
-        localStorage.setItem('users', JSON.stringify(users));
-      }
-      
-      // Save user-specific settings
-      localStorage.setItem(`profileSettings_${currentUser}`, JSON.stringify(settings));
-    }
+    loadProfile();
+  }, [user]);
+
+  useEffect(() => {
+    if (loading) return; // Don't save while loading
+    
+    localStorage.setItem('profileSettings', JSON.stringify(settings));
+    localStorage.setItem('flatCode', settings.flatCode || '');
     
     document.body.className = `bg-${themes[settings.theme].bg}`;
-  }, [settings]);
+  }, [settings, loading]);
 
   const handleBackgroundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -312,6 +344,82 @@ function Profile() {
               ))}
             </div>
           </div>
+
+          {/* Admin Section - Manage Flat Members */}
+          {isAdmin && settings.flatCode && (
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <h2 className="text-xl font-semibold text-slate-100">👑 Admin - Hantera Lägenhet</h2>
+                <span className="px-3 py-1 bg-yellow-600 text-white text-xs font-bold rounded-full">ADMIN</span>
+              </div>
+              
+              <div className="bg-slate-700 rounded-lg p-4 mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-slate-300">Lägenhetskod:</p>
+                  <div className="flex items-center gap-2">
+                    <code className="px-3 py-1 bg-slate-800 rounded text-cyan-400 font-mono font-bold">
+                      {settings.flatCode}
+                    </code>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(settings.flatCode!);
+                        alert('Kod kopierad!');
+                      }}
+                      className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-sm transition-colors"
+                    >
+                      Kopiera
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400">Dela denna kod med dina rumskamrater</p>
+              </div>
+
+              <div className="bg-slate-700 rounded-lg p-4">
+                <h3 className="font-semibold text-slate-100 mb-3">Rumskamrater ({flatMembers.length})</h3>
+                <div className="space-y-2">
+                  {flatMembers.map(member => (
+                    <div key={member.id} className="flex items-center justify-between p-3 bg-slate-800 rounded">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xl">
+                          {member.profile_picture?.startsWith('data:') ? '😀' : (member.profile_picture || '😀')}
+                        </div>
+                        <div>
+                          <p className="text-white font-medium">{member.email?.split('@')[0]}</p>
+                          <p className="text-xs text-slate-400">{member.email}</p>
+                        </div>
+                        {member.is_admin && (
+                          <span className="px-2 py-0.5 bg-yellow-600 text-white text-xs font-bold rounded">ADMIN</span>
+                        )}
+                      </div>
+                      {member.id !== user?.id && (
+                        <button
+                          onClick={async () => {
+                            if (confirm(`Ta bort ${member.email?.split('@')[0]} från lägenheten?`)) {
+                              try {
+                                await supabase
+                                  .from('profiles')
+                                  .update({ flat_code: null })
+                                  .eq('id', member.id);
+                                
+                                setFlatMembers(prev => prev.filter(m => m.id !== member.id));
+                                alert('Användare borttagen!');
+                              } catch (error) {
+                                console.error('Error removing user:', error);
+                                alert('Kunde inte ta bort användare');
+                              }
+                            }
+                          }}
+                          className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white text-sm rounded transition-colors"
+                        >
+                          Ta bort
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Save Confirmation */}
           <div className="bg-green-900/50 border border-green-500/50 rounded-lg p-4 text-center">

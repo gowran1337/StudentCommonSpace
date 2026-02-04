@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { messagesApi, type Message as ApiMessage } from '../services/api';
+import { supabase } from '../lib/supabase';
 
 interface Message {
   id: number;
@@ -14,16 +15,42 @@ interface Message {
 
 function GeneralChat() {
   const { user, flatCode } = useAuth();
-  const profileSettings = localStorage.getItem('profileSettings');
-  const settings = profileSettings ? JSON.parse(profileSettings) : null;
-  const username = settings?.username || user?.email?.split('@')[0] || 'Anonymous';
-  const userProfilePic = settings?.profilePicture || '😀';
+  const [userProfilePic, setUserProfilePic] = useState('😀');
+  const [username, setUsername] = useState('Anonymous');
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  // Load user profile from Supabase
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('profile_picture, email')
+          .eq('id', user.id)
+          .single();
+        
+        if (data) {
+          const migratedPic = data.profile_picture?.startsWith('data:') ? '😀' : (data.profile_picture || '😀');
+          setUserProfilePic(migratedPic);
+          setUsername(data.email?.split('@')[0] || 'Anonymous');
+        } else {
+          setUsername(user.email?.split('@')[0] || 'Anonymous');
+        }
+      } catch (err) {
+        console.error('Error loading profile:', err);
+        setUsername(user.email?.split('@')[0] || 'Anonymous');
+      }
+    };
+    
+    loadUserProfile();
+  }, [user]);
 
   // Load messages from Supabase
   useEffect(() => {
@@ -45,8 +72,15 @@ function GeneralChat() {
       }
     };
 
-    loadMessages();
-  }, []);
+    if (user && flatCode) {
+      loadMessages();
+    }
+
+    // Cleanup: Clear messages when component unmounts or user changes
+    return () => {
+      setMessages([]);
+    };
+  }, [user, flatCode]);
 
   // Subscribe to realtime updates
   useEffect(() => {
@@ -81,9 +115,12 @@ function GeneralChat() {
     e.preventDefault();
     if (!newMessage.trim() || !user) return;
 
+    // Always use the email from the authenticated user
+    const currentUsername = user.email?.split('@')[0] || 'Anonymous';
+
     try {
       await messagesApi.create({
-        username: username,
+        username: currentUsername,
         text: newMessage.trim(),
         profile_picture: userProfilePic,
         user_id: user.id

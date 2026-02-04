@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const Login = () => {
@@ -120,6 +120,15 @@ const Login = () => {
                         {loading ? 'Loggar in...' : 'Logga in'}
                     </button>
                 </form>
+                
+                <div className="mt-4 text-center">
+                    <p className="text-sm text-slate-400">
+                        Inget konto än?{' '}
+                        <Link to="/register" className="text-purple-400 hover:text-purple-300 font-medium">
+                            Registrera dig här
+                        </Link>
+                    </p>
+                </div>
             </div>
         </div>
     );
