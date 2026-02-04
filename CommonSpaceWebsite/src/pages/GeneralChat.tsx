@@ -152,6 +152,34 @@ function GeneralChat() {
     );
   }
 
+  // Show warning if no flatCode
+  if (!flatCode) {
+    return (
+      <div className="flex flex-col h-screen bg-slate-900">
+        <div className="bg-slate-800 border-b border-slate-700 p-4">
+          <h1 className="text-2xl font-bold text-purple-400">💬 General Chat</h1>
+          <p className="text-slate-400 text-sm">Chatta med alla i utrymmet</p>
+        </div>
+        
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="bg-yellow-900/30 border-2 border-yellow-500 rounded-lg p-8 max-w-md text-center">
+            <div className="text-6xl mb-4">⚠️</div>
+            <h2 className="text-2xl font-bold text-yellow-400 mb-4">Lägenhetskod saknas</h2>
+            <p className="text-slate-300 mb-6">
+              Du måste ange en lägenhetskod i din profil för att kunna chatta med dina rumskamrater.
+            </p>
+            <button
+              onClick={() => navigate('/profile')}
+              className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold transition-colors"
+            >
+              Gå till Profil
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-slate-900">
       <div className="bg-slate-800 border-b border-slate-700 p-4">
