@@ -22,49 +22,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         // Get initial session
-        supabase.auth.getSession().then(async ({ data: { session } }) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            
-            // Fetch flatCode from user profile if user is logged in
-            if (session?.user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('flat_code')
-                    .eq('id', session.user.id)
-                    .single();
-                
-                if (profile?.flat_code) {
-                    setFlatCode(profile.flat_code);
-                    localStorage.setItem('flatCode', profile.flat_code);
+        const initializeAuth = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                setSession(session);
+                setUser(session?.user ?? null);
+
+                // Fetch flatCode from user profile if user is logged in
+                if (session?.user) {
+                    try {
+                        const { data: profile, error } = await supabase
+                            .from('profiles')
+                            .select('flat_code')
+                            .eq('id', session.user.id)
+                            .single();
+
+                        if (error) {
+                            console.error('Error fetching profile:', error);
+                        } else if (profile?.flat_code) {
+                            setFlatCode(profile.flat_code);
+                            localStorage.setItem('flatCode', profile.flat_code);
+                        }
+                    } catch (error) {
+                        console.error('Error fetching flat_code:', error);
+                    }
                 }
+            } catch (error) {
+                console.error('Error getting session:', error);
+            } finally {
+                setLoading(false);
             }
-            
-            setLoading(false);
-        });
+        };
+
+        initializeAuth();
 
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             setSession(session);
             setUser(session?.user ?? null);
-            
+
             // Fetch flatCode when auth state changes
             if (session?.user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('flat_code')
-                    .eq('id', session.user.id)
-                    .single();
-                
-                if (profile?.flat_code) {
-                    setFlatCode(profile.flat_code);
-                    localStorage.setItem('flatCode', profile.flat_code);
+                try {
+                    const { data: profile, error } = await supabase
+                        .from('profiles')
+                        .select('flat_code')
+                        .eq('id', session.user.id)
+                        .single();
+
+                    if (error) {
+                        console.error('Error fetching profile:', error);
+                    } else if (profile?.flat_code) {
+                        setFlatCode(profile.flat_code);
+                        localStorage.setItem('flatCode', profile.flat_code);
+                    }
+                } catch (error) {
+                    console.error('Error fetching flat_code:', error);
                 }
             } else {
                 setFlatCode(null);
                 localStorage.removeItem('flatCode');
             }
-            
+
             setLoading(false);
         });
 
@@ -82,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('profileSettings');
         localStorage.removeItem('rememberedEmail');
         localStorage.removeItem('rememberedPassword');
-        
+
         await supabase.auth.signOut();
     };
 
