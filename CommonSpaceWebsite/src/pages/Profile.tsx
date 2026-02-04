@@ -60,7 +60,17 @@ function Profile() {
       console.error('Error saving flat code:', err);
     }
   };
-  const initialSettings: ProfileSettings = savedSettings ? JSON.parse(savedSettings) : {
+
+  // Parse saved settings and migrate old data URLs to emoji
+  const parsedSettings = savedSettings ? JSON.parse(savedSettings) : null;
+  const migratedProfilePicture = parsedSettings?.profilePicture?.startsWith('data:') 
+    ? '😀' 
+    : (parsedSettings?.profilePicture || '😀');
+
+  const initialSettings: ProfileSettings = parsedSettings ? {
+    ...parsedSettings,
+    profilePicture: migratedProfilePicture,
+  } : {
     username: '',
     profilePicture: '😀',
     quote: '',
@@ -103,17 +113,13 @@ function Profile() {
     document.body.className = `bg-${themes[settings.theme].bg}`;
   }, [settings]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'profile' | 'background') => {
+  const handleBackgroundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
-        if (type === 'profile') {
-          setSettings({ ...settings, profilePicture: result });
-        } else {
-          setSettings({ ...settings, backgroundImage: result });
-        }
+        setSettings({ ...settings, backgroundImage: result });
       };
       reader.readAsDataURL(file);
     }
@@ -144,29 +150,15 @@ function Profile() {
           <div className="mb-8">
             <h2 className="text-xl font-semibold text-slate-100 mb-4">Profilbild</h2>
             <div className="flex items-center gap-6 mb-4">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-5xl overflow-hidden">
-                {settings.profilePicture.startsWith('data:') ? (
-                  <img src={settings.profilePicture} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <span>{settings.profilePicture}</span>
-                )}
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-5xl">
+                <span>{settings.profilePicture?.startsWith('data:') ? '😀' : (settings.profilePicture || '😀')}</span>
               </div>
-              <div>
-                <label className={`bg-${currentTheme.primary}-600 hover:bg-${currentTheme.primary}-700 text-white px-4 py-2 rounded-lg cursor-pointer inline-block transition-colors`}>
-                  Ladda upp bild
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleImageUpload(e, 'profile')}
-                    className="hidden"
-                  />
-                </label>
-              </div>
+              <p className="text-slate-300">Välj en emoji som din profilbild</p>
             </div>
             
             {/* Emoji Selector */}
             <div className="bg-slate-700 rounded-lg p-4">
-              <p className="text-sm text-slate-300 mb-2">Eller välj en emoji:</p>
+              <p className="text-sm text-slate-300 mb-2">Välj en emoji:</p>
               <div className="grid grid-cols-10 gap-2">
                 {defaultProfilePics.map((emoji) => (
                   <button
@@ -285,7 +277,7 @@ function Profile() {
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => handleImageUpload(e, 'background')}
+                  onChange={handleBackgroundUpload}
                   className="hidden"
                 />
               </label>
