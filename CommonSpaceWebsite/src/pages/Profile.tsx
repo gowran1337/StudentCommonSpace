@@ -49,15 +49,29 @@ function Profile() {
     if (!user) return;
     
     try {
-      const { error } = await supabase
+      console.log('Saving flat code to Supabase:', code);
+      const { data, error } = await supabase
         .from('profiles')
-        .upsert({ id: user.id, flat_code: code }, { onConflict: 'id' });
+        .update({ flat_code: code || null })
+        .eq('id', user.id)
+        .select();
       
       if (error) {
         console.error('Error saving flat code to Supabase:', error);
+        alert('Fel: Kunde inte spara lägenhetskod. ' + error.message);
+      } else {
+        console.log('Flat code saved successfully:', data);
+        // Update localStorage immediately for other pages to use
+        localStorage.setItem('flatCode', code || '');
+        setSettings(prev => ({ ...prev, flatCode: code }));
+        // Reload members if admin
+        if (isAdmin && code) {
+          setTimeout(() => loadFlatMembers(), 500);
+        }
       }
     } catch (err) {
       console.error('Error saving flat code:', err);
+      alert('Fel: Kunde inte spara lägenhetskod.');
     }
   };
 
@@ -196,15 +210,69 @@ function Profile() {
     loadProfile();
   }, [user]);
 
+  // Function to load flat members
+  const loadFlatMembers = async () => {
+    if (!settings.flatCode) return;
+
+    console.log('Loading flat members for code:', settings.flatCode);
+    const { data: members, error } = await supabase
+      .from('profiles')
+      .select('id, email, profile_picture, is_admin')
+      .eq('flat_code', settings.flatCode);
+    
+    console.log('Flat members query result:', { members, error });
+    
+    if (members) {
+      setFlatMembers(members);
+    } else if (error) {
+      console.error('Error loading flat members:', error);
+    }
+  };
+
+  // Real-time subscription for flat members updates
+  useEffect(() => {
+    if (!user || !isAdmin || !settings.flatCode) return;
+
+    // Set up real-time subscription
+    const channel = supabase
+      .channel('profile-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `flat_code=eq.${settings.flatCode}`
+        },
+        () => {
+          console.log('Profile change detected, reloading members...');
+          // Reload flat members when any profile with this flat code changes
+          loadFlatMembers();
+        }
+      )
+      .subscribe();
+
+    // Initial load
+    loadFlatMembers();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, isAdmin, settings.flatCode]);
+
   useEffect(() => {
     if (loading) return; // Don't save while loading
     
-    localStorage.setItem('profileSettings', JSON.stringify(settings));
-    localStorage.setItem('flatCode', settings.flatCode || '');
+    // Only save profileSettings to localStorage (flatCode is saved separately via saveFlatCodeToSupabase)
+    localStorage.setItem('profileSettings', JSON.stringify({
+      profilePicture: settings.profilePicture,
+      theme: settings.theme,
+      flatCode: settings.flatCode
+    }));
     
     document.body.className = `bg-${themes[settings.theme].bg}`;
     
-    // Save to Supabase
+    // Save to Supabase (only profile_picture and theme, NOT flat_code)
     const saveToSupabase = async () => {
       if (!user) return;
       
@@ -213,8 +281,8 @@ function Profile() {
           .from('profiles')
           .update({ 
             profile_picture: settings.profilePicture,
-            flat_code: settings.flatCode || null,
             theme: settings.theme
+            // flat_code is saved separately via saveFlatCodeToSupabase
           })
           .eq('id', user.id);
       } catch (err) {
@@ -223,7 +291,7 @@ function Profile() {
     };
     
     saveToSupabase();
-  }, [settings, loading, user]);
+  }, [settings.profilePicture, settings.theme, loading, user]);
 
   const currentTheme = themes[settings.theme];
 
@@ -276,18 +344,29 @@ function Profile() {
                       onChange={(e) => {
                         const newCode = e.target.value.toUpperCase();
                         setSettings({ ...settings, flatCode: newCode });
-                        localStorage.setItem('flatCode', newCode);
                       }}
-                      onBlur={(e) => {
-                        const newCode = e.target.value.toUpperCase();
-                        saveFlatCodeToSupabase(newCode);
+                      onBlur={() => {
+                        saveFlatCodeToSupabase(settings.flatCode || '');
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          saveFlatCodeToSupabase(settings.flatCode || '');
+                          e.currentTarget.blur();
+                        }
                       }}
                       placeholder="Ange lägenhetskod..."
                       className={`flex-1 bg-slate-600 border border-slate-500 rounded-lg px-4 py-3 text-2xl font-bold text-${currentTheme.primary}-400 placeholder-slate-400 focus:outline-none focus:border-${currentTheme.primary}-400 uppercase tracking-widest`}
                     />
                     <button
-                      onClick={handleGenerateFlatCode}
+                      onClick={() => saveFlatCodeToSupabase(settings.flatCode || '')}
                       className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-semibold transition-colors whitespace-nowrap"
+                      title="Spara lägenhetskod"
+                    >
+                      💾 Spara
+                    </button>
+                    <button
+                      onClick={handleGenerateFlatCode}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-colors whitespace-nowrap"
                       title="Generera ny lägenhetskod"
                     >
                       🎲 Generera
@@ -299,6 +378,7 @@ function Profile() {
               <p className="text-slate-400 text-sm">
                 Dela denna kod med dina rumskamrater så de kan gå med i samma lägenhet. 
                 Endast personer med samma kod kan se era gemensamma saker.
+                <strong className="text-yellow-400"> Glöm inte klicka "💾 Spara" efter att du angett koden!</strong>
               </p>
             </div>
           </div>
@@ -356,7 +436,18 @@ function Profile() {
               </div>
 
               <div className="bg-slate-700 rounded-lg p-4">
-                <h3 className="font-semibold text-slate-100 mb-3">Rumskamrater ({flatMembers.length})</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-slate-100">Rumskamrater ({flatMembers.length})</h3>
+                  <button
+                    onClick={() => {
+                      console.log('Manual refresh clicked');
+                      loadFlatMembers();
+                    }}
+                    className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded transition-colors"
+                  >
+                    🔄 Uppdatera
+                  </button>
+                </div>
                 <div className="space-y-2">
                   {flatMembers.map(member => (
                     <div key={member.id} className="flex items-center justify-between p-3 bg-slate-800 rounded">
