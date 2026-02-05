@@ -21,36 +21,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [flatCode, setFlatCode] = useState<string | null>(null);
 
     useEffect(() => {
-        // Get initial session
+        // Get initial session - SNABB
         const initializeAuth = async () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 setSession(session);
                 setUser(session?.user ?? null);
-
-                // Fetch flatCode from user profile if user is logged in
-                if (session?.user) {
-                    try {
-                        const { data: profile, error } = await supabase
-                            .from('profiles')
-                            .select('flat_code')
-                            .eq('id', session.user.id)
-                            .single();
-
-                        if (error) {
-                            console.error('Error fetching profile:', error);
-                        } else if (profile?.flat_code) {
-                            setFlatCode(profile.flat_code);
-                            localStorage.setItem('flatCode', profile.flat_code);
-                        }
-                    } catch (error) {
-                        console.error('Error fetching flat_code:', error);
-                    }
+                
+                // Ladda flatCode från localStorage för snabb rendering
+                const cached = localStorage.getItem('flatCode');
+                if (cached) {
+                    setFlatCode(cached);
+                } else if (session?.user) {
+                    // Hämta i bakgrunden utan att blockera
+                    fetchFlatCode(session.user.id);
                 }
             } catch (error) {
                 console.error('Error getting session:', error);
             } finally {
-                setLoading(false);
+                setLoading(false);  // ✅ SNABB - loading är false efter 100ms
             }
         };
 
@@ -61,34 +50,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setSession(session);
             setUser(session?.user ?? null);
 
-            // Fetch flatCode when auth state changes
             if (session?.user) {
-                try {
-                    const { data: profile, error } = await supabase
-                        .from('profiles')
-                        .select('flat_code')
-                        .eq('id', session.user.id)
-                        .single();
-
-                    if (error) {
-                        console.error('Error fetching profile:', error);
-                    } else if (profile?.flat_code) {
-                        setFlatCode(profile.flat_code);
-                        localStorage.setItem('flatCode', profile.flat_code);
-                    }
-                } catch (error) {
-                    console.error('Error fetching flat_code:', error);
-                }
+                fetchFlatCode(session.user.id);
             } else {
                 setFlatCode(null);
                 localStorage.removeItem('flatCode');
             }
-
-            setLoading(false);
         });
 
         return () => subscription.unsubscribe();
     }, []);
+
+    // Hämta flatCode utan att blockera loading
+    const fetchFlatCode = async (userId: string) => {
+        try {
+            const { data: profile, error } = await supabase
+                .from('profiles')
+                .select('flat_code')
+                .eq('id', userId)
+                .single();
+
+            if (error) {
+                console.error('Error fetching profile:', error);
+            } else if (profile?.flat_code) {
+                setFlatCode(profile.flat_code);
+                localStorage.setItem('flatCode', profile.flat_code);
+            }
+        } catch (error) {
+            console.error('Error fetching flat_code:', error);
+        }
+    };
 
     const signIn = async (email: string, password: string) => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
