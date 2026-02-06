@@ -102,7 +102,6 @@ const Calendar = () => {
   };
 
   const openCreateModal = (date: Date) => {
-    setSelectedDate(date);
     setEditingEvent(null);
     setTitle('');
     setDescription('');

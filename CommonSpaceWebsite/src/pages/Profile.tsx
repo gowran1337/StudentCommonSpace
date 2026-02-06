@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { gdprApi } from '../services/api';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmDialog';
 
 interface ProfileSettings {
   profilePicture: string;
@@ -40,6 +42,8 @@ const defaultProfilePics = [
 
 function Profile() {
   const { user } = useAuth();
+  const { showToast } = useToast();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [flatMembers, setFlatMembers] = useState<Array<{id: string, email: string, profile_picture: string, is_admin: boolean}>>([]);
@@ -48,30 +52,33 @@ function Profile() {
   const saveFlatCodeToSupabase = async (code: string) => {
     if (!user) return;
     
+    // Normalize: trim whitespace and uppercase for consistent matching
+    const normalizedCode = code ? code.trim().toUpperCase() : null;
+    
     try {
-      console.log('Saving flat code to Supabase:', code);
+      console.log('Saving flat code to Supabase:', normalizedCode);
       const { data, error } = await supabase
         .from('profiles')
-        .update({ flat_code: code || null })
+        .update({ flat_code: normalizedCode })
         .eq('id', user.id)
         .select();
       
       if (error) {
         console.error('Error saving flat code to Supabase:', error);
-        alert('Fel: Kunde inte spara lägenhetskod. ' + error.message);
+        showToast('Fel: Kunde inte spara lägenhetskod. ' + error.message, 'error');
       } else {
         console.log('Flat code saved successfully:', data);
         // Update localStorage immediately for other pages to use
-        localStorage.setItem('flatCode', code || '');
-        setSettings(prev => ({ ...prev, flatCode: code }));
-        // Reload members if admin
-        if (isAdmin && code) {
+        localStorage.setItem('flatCode', normalizedCode || '');
+        setSettings(prev => ({ ...prev, flatCode: normalizedCode || '' }));
+        // Reload members after saving
+        if (normalizedCode) {
           setTimeout(() => loadFlatMembers(), 500);
         }
       }
     } catch (err) {
       console.error('Error saving flat code:', err);
-      alert('Fel: Kunde inte spara lägenhetskod.');
+      showToast('Fel: Kunde inte spara lägenhetskod.', 'error');
     }
   };
 
@@ -87,14 +94,13 @@ function Profile() {
   const handleGenerateFlatCode = async () => {
     if (!user) return;
     
-    const confirmed = confirm(
-      'Är du säker på att du vill generera en ny lägenhetskod?\n\n' +
-      'Detta kommer att:\n' +
-      '• Skapa en ny lägenhet\n' +
-      '• Göra dig till admin\n' +
-      '• Ta bort dig från din nuvarande lägenhet (om du har en)\n\n' +
-      'Fortsätt?'
-    );
+    const confirmed = await confirm({
+      title: 'Generera ny lägenhetskod?',
+      message: 'Detta kommer att:\n• Skapa en ny lägenhet\n• Göra dig till admin\n• Ta bort dig från din nuvarande lägenhet (om du har en)',
+      confirmText: 'Generera',
+      cancelText: 'Avbryt',
+      danger: true,
+    });
     
     if (!confirmed) return;
     
@@ -117,7 +123,7 @@ function Profile() {
       }
 
       if (attempts === maxAttempts) {
-        alert('Kunde inte generera en unik kod. Försök igen.');
+        showToast('Kunde inte generera en unik kod. Försök igen.', 'error');
         return;
       }
 
@@ -134,14 +140,10 @@ function Profile() {
       setIsAdmin(true);
       localStorage.setItem('flatCode', newCode);
 
-      alert(
-        `Din nya lägenhetskod är: ${newCode}\n\n` +
-        'Du är nu admin för denna lägenhet.\n' +
-        'Dela denna kod med dina rumskamrater!'
-      );
+      showToast(`Ny lägenhetskod: ${newCode} — Dela den med dina rumskamrater!`, 'success');
     } catch (error) {
       console.error('Error generating flat code:', error);
-      alert('Kunde inte generera lägenhetskod. Försök igen.');
+      showToast('Kunde inte generera lägenhetskod. Försök igen.', 'error');
     }
   };
 
@@ -188,8 +190,8 @@ function Profile() {
           localStorage.setItem('profileSettings', JSON.stringify(loadedSettings));
           localStorage.setItem('flatCode', data.flat_code || '');
           
-          // Load flat members if admin
-          if (data.is_admin && data.flat_code) {
+          // Load flat members for users with same flat code
+          if (data.flat_code) {
             const { data: members } = await supabase
               .from('profiles')
               .select('id, email, profile_picture, is_admin')
@@ -231,7 +233,7 @@ function Profile() {
 
   // Real-time subscription for flat members updates
   useEffect(() => {
-    if (!user || !isAdmin || !settings.flatCode) return;
+    if (!user || !settings.flatCode) return;
 
     // Set up real-time subscription
     const channel = supabase
@@ -258,7 +260,7 @@ function Profile() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, isAdmin, settings.flatCode]);
+  }, [user, settings.flatCode]);
 
   useEffect(() => {
     if (loading) return; // Don't save while loading
@@ -406,12 +408,18 @@ function Profile() {
             </div>
           </div>
 
-          {/* Admin Section - Manage Flat Members */}
-          {isAdmin && settings.flatCode && (
+          {/* Flat Members Section - visible to all users with a flat code */}
+          {settings.flatCode && (
             <div className="mb-8">
               <div className="flex items-center gap-2 mb-4">
-                <h2 className="text-xl font-semibold text-slate-100">👑 Admin - Hantera Lägenhet</h2>
-                <span className="px-3 py-1 bg-yellow-600 text-white text-xs font-bold rounded-full">ADMIN</span>
+                {isAdmin ? (
+                  <>
+                    <h2 className="text-xl font-semibold text-slate-100">👑 Admin - Hantera Lägenhet</h2>
+                    <span className="px-3 py-1 bg-yellow-600 text-white text-xs font-bold rounded-full">ADMIN</span>
+                  </>
+                ) : (
+                  <h2 className="text-xl font-semibold text-slate-100">🏠 Din Lägenhet</h2>
+                )}
               </div>
               
               <div className="bg-slate-700 rounded-lg p-4 mb-4">
@@ -424,7 +432,7 @@ function Profile() {
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(settings.flatCode!);
-                        alert('Kod kopierad!');
+                        showToast('Kod kopierad!', 'success');
                       }}
                       className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-sm transition-colors"
                     >
@@ -463,10 +471,16 @@ function Profile() {
                           <span className="px-2 py-0.5 bg-yellow-600 text-white text-xs font-bold rounded">ADMIN</span>
                         )}
                       </div>
-                      {member.id !== user?.id && (
+                      {isAdmin && member.id !== user?.id && (
                         <button
                           onClick={async () => {
-                            if (confirm(`Ta bort ${member.email?.split('@')[0]} från lägenheten?`)) {
+                            const ok = await confirm({
+                              title: 'Ta bort användare',
+                              message: `Vill du ta bort ${member.email?.split('@')[0]} från lägenheten?`,
+                              confirmText: 'Ta bort',
+                              danger: true,
+                            });
+                            if (ok) {
                               try {
                                 await supabase
                                   .from('profiles')
@@ -474,10 +488,10 @@ function Profile() {
                                   .eq('id', member.id);
                                 
                                 setFlatMembers(prev => prev.filter(m => m.id !== member.id));
-                                alert('Användare borttagen!');
+                                showToast('Användare borttagen!', 'success');
                               } catch (error) {
                                 console.error('Error removing user:', error);
-                                alert('Kunde inte ta bort användare');
+                                showToast('Kunde inte ta bort användare', 'error');
                               }
                             }
                           }}
@@ -520,9 +534,9 @@ function Profile() {
                     if (!user) return;
                     try {
                       await gdprApi.exportUserData(user.id);
-                      alert('Din data har laddats ner!');
-                    } catch (error) {
-                      alert('Kunde inte exportera data');
+                      showToast('Din data har laddats ner!', 'success');
+                    } catch {
+                      showToast('Kunde inte exportera data', 'error');
                     }
                   }}
                   className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded transition-colors"
@@ -541,32 +555,32 @@ function Profile() {
                   onClick={async () => {
                     if (!user) return;
                     
-                    const confirmed = confirm(
-                      '⚠️ VARNING: Detta raderar PERMANENT all din data!\n\n' +
-                      '• Din profil\n' +
-                      '• Alla dina meddelanden\n' +
-                      '• Alla dina kalenderhändelser\n' +
-                      '• Alla dina utgifter\n' +
-                      '• Alla dina poster på anslagstavlan\n\n' +
-                      'Denna åtgärd kan INTE ångras!\n\n' +
-                      'Är du HELT SÄKER på att du vill fortsätta?'
-                    );
+                    const first = await confirm({
+                      title: '⚠️ Radera konto permanent',
+                      message: 'Detta raderar PERMANENT all din data:\n• Din profil\n• Alla dina meddelanden\n• Alla dina kalenderhändelser\n• Alla dina utgifter\n• Alla dina poster på anslagstavlan\n\nDenna åtgärd kan INTE ångras!',
+                      confirmText: 'Ja, radera allt',
+                      cancelText: 'Avbryt',
+                      danger: true,
+                    });
                     
-                    if (!confirmed) return;
+                    if (!first) return;
                     
-                    const doubleConfirm = confirm(
-                      'Sista chansen!\n\n' +
-                      'Skriv OK nedan för att bekräfta permanent radering av ditt konto.'
-                    );
+                    const second = await confirm({
+                      title: 'Sista chansen!',
+                      message: 'Är du HELT SÄKER? All data försvinner permanent.',
+                      confirmText: 'Radera permanent',
+                      cancelText: 'Avbryt',
+                      danger: true,
+                    });
                     
-                    if (!doubleConfirm) return;
+                    if (!second) return;
                     
                     try {
                       await gdprApi.deleteUserAccount(user.id);
-                      alert('Ditt konto har raderats. Du kommer nu loggas ut.');
-                      window.location.href = '/';
-                    } catch (error) {
-                      alert('Kunde inte radera konto. Kontakta support.');
+                      showToast('Ditt konto har raderats. Du loggas nu ut.', 'success');
+                      setTimeout(() => { window.location.href = '/'; }, 2000);
+                    } catch {
+                      showToast('Kunde inte radera konto. Kontakta support.', 'error');
                     }
                   }}
                   className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded transition-colors"

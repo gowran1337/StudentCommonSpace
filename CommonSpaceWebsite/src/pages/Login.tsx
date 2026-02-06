@@ -11,13 +11,11 @@ const Login = () => {
     const navigate = useNavigate();
     const { signIn } = useAuth();
 
-    // Load saved credentials on mount
+    // Load saved email on mount (never store passwords)
     useEffect(() => {
         const savedEmail = localStorage.getItem('rememberedEmail');
-        const savedPassword = localStorage.getItem('rememberedPassword');
-        if (savedEmail && savedPassword) {
+        if (savedEmail) {
             setEmail(savedEmail);
-            setPassword(savedPassword);
             setRememberMe(true);
         }
     }, []);
@@ -32,14 +30,13 @@ const Login = () => {
             if (error) {
                 setError(error.message);
             } else {
-                // Save or clear credentials based on remember me
+                // Save or clear email based on remember me (never store password)
                 if (rememberMe) {
                     localStorage.setItem('rememberedEmail', email);
-                    localStorage.setItem('rememberedPassword', password);
                 } else {
                     localStorage.removeItem('rememberedEmail');
-                    localStorage.removeItem('rememberedPassword');
                 }
+                localStorage.removeItem('rememberedPassword'); // Clean up legacy
                 navigate('/profile');
             }
         } catch {

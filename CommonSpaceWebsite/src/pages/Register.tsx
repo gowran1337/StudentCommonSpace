@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../components/Toast';
 
 const defaultProfilePics = ['😀', '😎', '🤓', '🤖', '👽', '🦄', '🐱', '🐶', '🐼', '🦊'];
 
@@ -23,6 +24,7 @@ function Register() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,7 +118,7 @@ function Register() {
 
         // Show success message with the code if creating new flat
         if (isCreatingNewFlat) {
-          alert(`Din lägenhetskod: ${finalFlatCode}\n\nDu är nu admin för denna lägenhet.\nDela denna kod med dina rumskamrater!`);
+          showToast(`Din lägenhetskod: ${finalFlatCode} — Dela den med dina rumskamrater!`, 'success');
         }
 
         // Navigate to login
