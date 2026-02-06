@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { expensesApi, settlementsApi, type Expense, type Settlement } from '../services/api';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmDialog';
+import { MAX_LENGTHS, sanitizeText, isValidAmount } from '../utils/validation';
 
 interface Balance {
   [user: string]: number;
@@ -15,6 +18,8 @@ interface FlatMember {
 
 const Expenses = () => {
   const { user, flatCode } = useAuth();
+  const { showToast } = useToast();
+  const confirm = useConfirm();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [flatMembers, setFlatMembers] = useState<FlatMember[]>([]);
@@ -117,13 +122,17 @@ const Expenses = () => {
 
   const handleAddExpense = async () => {
     if (!description || !amount || !paidBy || splitBetween.length === 0) {
-      alert('Please fill in all fields');
+      showToast('Fyll i alla fält', 'warning');
+      return;
+    }
+    if (!isValidAmount(amount)) {
+      showToast('Ange ett giltigt belopp (positivt tal)', 'warning');
       return;
     }
 
     try {
       const newExpense = {
-        description,
+        description: sanitizeText(description, MAX_LENGTHS.expenseDescription),
         amount: parseFloat(amount),
         paid_by: paidBy,
         split_between: splitBetween,
@@ -141,13 +150,17 @@ const Expenses = () => {
       setShowAddExpense(false);
     } catch (error) {
       console.error('Error adding expense:', error);
-      alert('Failed to add expense');
+      showToast('Kunde inte lägga till utgift', 'error');
     }
   };
 
   const handleSettlement = async () => {
     if (!settlementFrom || !settlementTo || !settlementAmount) {
-      alert('Please fill in all fields');
+      showToast('Fyll i alla fält', 'warning');
+      return;
+    }
+    if (!isValidAmount(settlementAmount)) {
+      showToast('Ange ett giltigt belopp (positivt tal)', 'warning');
       return;
     }
 
@@ -169,12 +182,18 @@ const Expenses = () => {
       setShowSettlement(false);
     } catch (error) {
       console.error('Error recording settlement:', error);
-      alert('Failed to record settlement');
+      showToast('Kunde inte registrera betalning', 'error');
     }
   };
 
   const handleDeleteExpense = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this expense?')) return;
+    const ok = await confirm({
+      title: 'Radera utgift',
+      message: 'Är du säker på att du vill radera denna utgift?',
+      confirmText: 'Radera',
+      danger: true,
+    });
+    if (!ok) return;
     
     try {
       await expensesApi.delete(id);

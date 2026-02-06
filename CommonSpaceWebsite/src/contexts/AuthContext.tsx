@@ -32,8 +32,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const cached = localStorage.getItem('flatCode');
                 if (cached) {
                     setFlatCode(cached);
-                } else if (session?.user) {
-                    // Hämta i bakgrunden utan att blockera
+                }
+                if (session?.user) {
+                    // Alltid hämta från Supabase för att synka
                     fetchFlatCode(session.user.id);
                 }
             } catch (error) {
@@ -72,9 +73,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (error) {
                 console.error('Error fetching profile:', error);
-            } else if (profile?.flat_code) {
-                setFlatCode(profile.flat_code);
-                localStorage.setItem('flatCode', profile.flat_code);
+                return;
+            }
+            
+            // Always sync state with what's in the database
+            const code = profile?.flat_code || null;
+            setFlatCode(code);
+            if (code) {
+                localStorage.setItem('flatCode', code);
+            } else {
+                localStorage.removeItem('flatCode');
             }
         } catch (error) {
             console.error('Error fetching flat_code:', error);

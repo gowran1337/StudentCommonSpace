@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { messagesApi, type Message as ApiMessage } from '../services/api';
 import { supabase } from '../lib/supabase';
+import { MAX_LENGTHS, sanitizeText } from '../utils/validation';
 
 interface Message {
   id: number;
@@ -108,9 +109,15 @@ function GeneralChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const sendMessage = async (e: React.FormEvent) => {
+  const [sending, setSending] = useState(false);
+
+  const sendMessage = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !user) return;
+    if (sending) return; // Rate limit: prevent rapid submissions
+    const trimmed = sanitizeText(newMessage, MAX_LENGTHS.chatMessage);
+    if (!trimmed || !user) return;
+
+    setSending(true);
 
     // Always use the email from the authenticated user
     const currentUsername = user.email?.split('@')[0] || 'Anonymous';
@@ -118,15 +125,18 @@ function GeneralChat() {
     try {
       await messagesApi.create({
         username: currentUsername,
-        text: newMessage.trim(),
+        text: trimmed,
         profile_picture: userProfilePic,
         user_id: user.id
       });
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
+    } finally {
+      // Allow next message after 500ms
+      setTimeout(() => setSending(false), 500);
     }
-  };
+  }, [newMessage, user, userProfilePic, sending]);
 
   const deleteMessage = async (messageId: number) => {
     try {
