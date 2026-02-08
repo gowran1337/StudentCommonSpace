@@ -593,10 +593,13 @@ type UserRow = User; // ni har redan User-interface
 export const cleaningRotationApi = {
   // Get all users in rotation order
   getRotation: async (): Promise<CleaningRotationUser[]> => {
-    // Fetch rotation data
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return [];
+
     const { data: rotationData, error: rotationError } = await supabase
       .from('cleaning_rotation')
       .select('*')
+      .eq('flat_code', flatCode)
       .order('order_position', { ascending: true });
 
     if (rotationError) {
@@ -604,51 +607,48 @@ export const cleaningRotationApi = {
       throw rotationError;
     }
 
-    console.log('Raw rotation data:', rotationData);
-
-    // Fetch all users
-    const { data: usersData, error: usersError } = await supabase.from('users').select('*');
+    // Fetch users belonging to this flat
+    const { data: usersData, error: usersError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('flat_code', flatCode);
 
     if (usersError) {
       console.error('Error fetching users:', usersError);
       throw usersError;
     }
 
-    console.log('All users data:', usersData);
-
     const rotationRows = (rotationData || []) as RotationRow[];
     const userRows = (usersData || []) as UserRow[];
 
     const mapped: CleaningRotationUser[] = rotationRows.map((rotationItem) => {
       const user = userRows.find((u) => u.id === rotationItem.user_id);
-
-      console.log(
-        `Rotation item ${rotationItem.id} user_id: ${rotationItem.user_id}, found user:`,
-        user
-      );
-
       return {
         ...rotationItem,
         user,
       };
     });
 
-
-
-    console.log('Mapped rotation data:', mapped);
     return mapped;
   },
 
   // Get current rotation state
   getState: async (): Promise<RotationState | null> => {
-    const { data, error } = await supabase.from('rotation_state').select('*').eq('id', 1).single();
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return null;
+
+    const { data, error } = await supabase
+      .from('rotation_state')
+      .select('*')
+      .eq('flat_code', flatCode)
+      .single();
 
     if (error) {
+      // No rotation state for this flat yet
+      if (error.code === 'PGRST116') return null;
       console.error('Error fetching rotation state:', error);
       throw error;
     }
-
-    console.log('Raw rotation state:', data);
 
     // Fetch the current user separately if there is one
     if (data && data.current_user_id) {
@@ -662,14 +662,10 @@ export const cleaningRotationApi = {
         console.error('Error fetching current user:', userError);
       }
 
-      console.log('Current user data:', userData);
-
-      const mapped = {
+      return {
         ...data,
         current_user: userData || null,
       };
-      console.log('Mapped rotation state:', mapped);
-      return mapped;
     }
 
     return data;
