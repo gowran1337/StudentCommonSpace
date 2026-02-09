@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 const defaultProfilePics = ['😀', '😎', '🤓', '🤖', '👽', '🦄', '🐱', '🐶', '🐼', '🦊'];
 
@@ -44,6 +44,45 @@ function Register() {
     }
 
     try {
+      // If Supabase is not configured, use localStorage
+      if (!isSupabaseConfigured) {
+        const users = JSON.parse(localStorage.getItem('users') || '[]');
+        
+        // Check if user already exists
+        if (users.some((u: any) => u.email === email)) {
+          setError('En användare med denna e-post finns redan');
+          setLoading(false);
+          return;
+        }
+        
+        // Create new user
+        const newUser = {
+          id: email,
+          email,
+          password, // In production, this should be hashed!
+          username: email.split('@')[0],
+          profile_picture: profilePicture,
+          flat_code: flatCode.trim().toUpperCase(),
+          quote: '',
+          created_at: new Date().toISOString()
+        };
+        
+        users.push(newUser);
+        localStorage.setItem('users', JSON.stringify(users));
+        localStorage.setItem('flatCode', flatCode.trim().toUpperCase());
+        
+        // Auto login
+        localStorage.setItem('currentUser', JSON.stringify({
+          id: newUser.id,
+          email: newUser.email,
+          user_metadata: { username: newUser.username }
+        }));
+        
+        navigate('/profile');
+        setLoading(false);
+        return;
+      }
+      
       // Sign up with Supabase and include flat_code in metadata
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
@@ -89,9 +128,9 @@ function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
-      <div className="w-full max-w-md p-8 bg-slate-800 rounded-lg shadow-xl border border-slate-700">
-        <h1 className="text-3xl font-bold text-center text-white mb-8">Registrera</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-900 dark:to-slate-800 light:from-slate-100 light:to-slate-200">
+      <div className="w-full max-w-md p-8 bg-slate-800 dark:bg-slate-800 light:bg-white rounded-lg shadow-xl border border-slate-700 dark:border-slate-700 light:border-slate-300">
+        <h1 className="text-3xl font-bold text-center text-white dark:text-white light:text-slate-900 mb-8">Registrera</h1>
         
         {error && (
           <div className="mb-4 p-3 bg-red-900 border border-red-700 text-red-100 rounded">
@@ -204,11 +243,11 @@ function Register() {
           </button>
         </form>
         
-        <p className="mt-4 text-center text-sm text-slate-400">
+        <p className="mt-4 text-center text-sm text-slate-400 dark:text-slate-400 light:text-slate-600">
           Har du redan ett konto?{' '}
           <button
             onClick={() => navigate('/')}
-            className="text-purple-400 hover:text-purple-300 underline"
+            className="text-purple-400 dark:text-purple-400 light:text-purple-600 hover:text-purple-300 dark:hover:text-purple-300 light:hover:text-purple-700 underline"
           >
             Logga in här
           </button>

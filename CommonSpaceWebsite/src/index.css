@@ -2,10 +2,20 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @layer base {
-
   body {
-    @apply bg-slate-900 text-slate-100;
     font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  }
+
+  /* Dark mode (default) */
+  .dark body,
+  body.dark {
+    @apply bg-slate-900 text-slate-100;
+  }
+
+  /* Light mode */
+  .light body,
+  body.light {
+    @apply bg-slate-50 text-slate-900;
   }
 
   #root {
@@ -16,18 +26,85 @@
     @apply font-medium text-purple-400 hover:text-purple-500;
   }
 
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
+  .light a,
+  body.light a {
+    @apply text-purple-600 hover:text-purple-700;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
     @apply leading-tight;
   }
 
   button {
     @apply rounded px-3 py-2 font-medium cursor-pointer transition-all;
-    @apply bg-slate-800 border border-transparent hover:border-purple-400;
-    @apply focus:outline-2 focus:outline-purple-400;
+  }
+}
+
+@layer components {
+  /* Force override backgrounds in light mode */
+  .light .bg-slate-900,
+  .light .bg-slate-800,
+  .light .bg-slate-700,
+  body.light .bg-slate-900,
+  body.light .bg-slate-800,
+  body.light .bg-slate-700 {
+    background-color: white !important;
+  }
+
+  .light .bg-slate-600,
+  body.light .bg-slate-600 {
+    background-color: rgb(241, 245, 249) !important;
+  }
+
+  .light .bg-slate-800\/50,
+  body.light .bg-slate-800\/50 {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+  }
+
+  .light .bg-slate-700\/50,
+  body.light .bg-slate-700\/50 {
+    background-color: rgba(241, 245, 249, 0.5) !important;
+  }
+
+  /* Force override text colors in light mode */
+  .light .text-slate-100,
+  .light .text-slate-200,
+  .light .text-slate-300,
+  body.light .text-slate-100,
+  body.light .text-slate-200,
+  body.light .text-slate-300 {
+    color: rgb(15, 23, 42) !important;
+  }
+
+  .light .text-slate-400,
+  .light .text-slate-500,
+  body.light .text-slate-400,
+  body.light .text-slate-500 {
+    color: rgb(71, 85, 105) !important;
+  }
+
+  /* Force override borders in light mode */
+  .light .border-slate-700,
+  .light .border-slate-600,
+  body.light .border-slate-700,
+  body.light .border-slate-600 {
+    border-color: rgb(203, 213, 225) !important;
+  }
+
+  /* Purple adjustments */
+  .light .text-purple-400,
+  body.light .text-purple-400 {
+    color: rgb(147, 51, 234) !important;
+  }
+
+  .light .hover\:text-purple-400:hover,
+  body.light .hover\:text-purple-400:hover {
+    color: rgb(126, 34, 206) !important;
+  }
+
+  /* Cyan adjustments */
+  .light .text-cyan-400,
+  body.light .text-cyan-400 {
+    color: rgb(8, 145, 178) !important;
   }
 }

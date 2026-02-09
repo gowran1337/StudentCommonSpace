@@ -185,8 +185,12 @@ function DirectMessages() {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-2xl">
-                      {contact.profilePicture || contact.name[0]}
+                    <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-2xl overflow-hidden">
+                      {contact.profilePicture?.startsWith('data:') ? (
+                        <img src={contact.profilePicture} alt={contact.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{contact.profilePicture || contact.name[0]}</span>
+                      )}
                     </div>
                     <div>
                       <p className="font-semibold text-slate-100">{contact.name}</p>
@@ -213,8 +217,12 @@ function DirectMessages() {
           <>
             <div className="bg-slate-800 border-b border-slate-700 p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-2xl">
-                  {selectedContact.profilePicture || selectedContact.name[0]}
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-2xl overflow-hidden">
+                  {selectedContact.profilePicture?.startsWith('data:') ? (
+                    <img src={selectedContact.profilePicture} alt={selectedContact.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span>{selectedContact.profilePicture || selectedContact.name[0]}</span>
+                  )}
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-slate-100">{selectedContact.name}</h2>

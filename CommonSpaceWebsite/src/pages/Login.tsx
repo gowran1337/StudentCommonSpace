@@ -50,9 +50,9 @@ const Login = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
-            <div className="w-full max-w-md p-8 bg-slate-800 rounded-lg shadow-xl border border-slate-700">
-                <h1 className="text-3xl font-bold text-center text-white mb-8">Login</h1>
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-900 dark:to-slate-800 light:from-slate-100 light:to-slate-200">
+            <div className="w-full max-w-md p-8 bg-slate-800 dark:bg-slate-800 light:bg-white rounded-lg shadow-xl border border-slate-700 dark:border-slate-700 light:border-slate-300">
+                <h1 className="text-3xl font-bold text-center text-white dark:text-white light:text-slate-900 mb-8">Login</h1>
 
                 {error && (
                     <div className="mb-4 p-3 bg-red-900 border border-red-700 text-red-100 rounded">
@@ -62,7 +62,7 @@ const Login = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
+                        <label htmlFor="email" className="block text-sm font-medium text-slate-300 dark:text-slate-300 light:text-slate-700 mb-2">
                             E-post
                         </label>
                         <input
@@ -74,14 +74,14 @@ const Login = () => {
                                 setError('');
                             }}
                             placeholder="din@email.com"
-                            className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:border-purple-400 transition"
+                            className="w-full px-4 py-2 bg-slate-700 dark:bg-slate-700 light:bg-slate-100 border border-slate-600 dark:border-slate-600 light:border-slate-300 rounded text-white dark:text-white light:text-slate-900 placeholder-slate-400 dark:placeholder-slate-400 light:placeholder-slate-500 focus:outline-none focus:border-purple-400 transition"
                             required
                             disabled={loading}
                         />
                     </div>
 
                     <div>
-                        <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
+                        <label htmlFor="password" className="block text-sm font-medium text-slate-300 dark:text-slate-300 light:text-slate-700 mb-2">
                             Lösenord
                         </label>
                         <input
@@ -93,7 +93,7 @@ const Login = () => {
                                 setError('');
                             }}
                             placeholder="Ange ditt lösenord"
-                            className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:border-purple-400 transition"
+                            className="w-full px-4 py-2 bg-slate-700 dark:bg-slate-700 light:bg-slate-100 border border-slate-600 dark:border-slate-600 light:border-slate-300 rounded text-white dark:text-white light:text-slate-900 placeholder-slate-400 dark:placeholder-slate-400 light:placeholder-slate-500 focus:outline-none focus:border-purple-400 transition"
                             required
                             disabled={loading}
                         />
@@ -107,7 +107,7 @@ const Login = () => {
                             onChange={(e) => setRememberMe(e.target.checked)}
                             className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-purple-600 focus:ring-purple-500 focus:ring-offset-slate-800"
                         />
-                        <label htmlFor="rememberMe" className="ml-2 text-sm text-slate-300">
+                        <label htmlFor="rememberMe" className="ml-2 text-sm text-slate-300 dark:text-slate-300 light:text-slate-700">
                             Kom ihåg mig
                         </label>
                     </div>
@@ -120,6 +120,18 @@ const Login = () => {
                         {loading ? 'Loggar in...' : 'Logga in'}
                     </button>
                 </form>
+
+                <div className="mt-6 text-center">
+                    <p className="text-slate-300 dark:text-slate-300 light:text-slate-600">
+                        Har du inget konto än?
+                    </p>
+                    <a
+                        href="/register"
+                        className="inline-block mt-2 text-purple-400 dark:text-purple-400 light:text-purple-600 hover:text-purple-300 dark:hover:text-purple-300 light:hover:text-purple-700 font-medium transition"
+                    >
+                        Registrera dig här →
+                    </a>
+                </div>
             </div>
         </div>
     );

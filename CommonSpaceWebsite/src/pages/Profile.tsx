@@ -125,6 +125,18 @@ function Profile() {
     }
   };
 
+  const handleProfilePictureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setSettings({ ...settings, profilePicture: result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const saveQuote = () => {
     setSettings({ ...settings, quote: tempQuote });
     setIsEditingQuote(false);
@@ -150,15 +162,30 @@ function Profile() {
           <div className="mb-8">
             <h2 className="text-xl font-semibold text-slate-100 mb-4">Profilbild</h2>
             <div className="flex items-center gap-6 mb-4">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-5xl">
-                <span>{settings.profilePicture?.startsWith('data:') ? '😀' : (settings.profilePicture || '😀')}</span>
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-5xl overflow-hidden">
+                {settings.profilePicture?.startsWith('data:') ? (
+                  <img src={settings.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span>{settings.profilePicture || '😀'}</span>
+                )}
               </div>
-              <p className="text-slate-300">Välj en emoji som din profilbild</p>
+              <div>
+                <p className="text-slate-300 mb-2">Välj en emoji eller ladda upp egen bild</p>
+                <label className={`bg-${currentTheme.primary}-600 hover:bg-${currentTheme.primary}-700 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors inline-block`}>
+                  📷 Ladda upp bild
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleProfilePictureUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
             </div>
             
             {/* Emoji Selector */}
             <div className="bg-slate-700 rounded-lg p-4">
-              <p className="text-sm text-slate-300 mb-2">Välj en emoji:</p>
+              <p className="text-sm text-slate-300 mb-2">Eller välj en emoji:</p>
               <div className="grid grid-cols-10 gap-2">
                 {defaultProfilePics.map((emoji) => (
                   <button

@@ -119,15 +119,15 @@ function GeneralChat() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-slate-900">
-      <div className="bg-slate-800 border-b border-slate-700 p-4">
-        <h1 className="text-2xl font-bold text-purple-400">💬 General Chat</h1>
-        <p className="text-slate-400 text-sm">Chatta med alla i utrymmet</p>
+    <div className="flex flex-col h-screen bg-slate-900 dark:bg-slate-900 light:bg-slate-50">
+      <div className="bg-slate-800 dark:bg-slate-800 light:bg-white border-b border-slate-700 dark:border-slate-700 light:border-slate-200 p-4">
+        <h1 className="text-2xl font-bold text-purple-400 dark:text-purple-400 light:text-purple-600">💬 General Chat</h1>
+        <p className="text-slate-400 dark:text-slate-400 light:text-slate-600 text-sm">Chatta med alla i utrymmet</p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 ? (
-          <div className="text-center text-slate-500 mt-8">
+          <div className="text-center text-slate-500 dark:text-slate-500 light:text-slate-600 mt-8">
             <p className="text-lg">Inga meddelanden än</p>
             <p className="text-sm">Var först att säga hej! 👋</p>
           </div>
@@ -144,17 +144,21 @@ function GeneralChat() {
                       localStorage.setItem('dmTarget', msg.user);
                       navigate('/directmessages');
                     }}
-                    className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl flex-shrink-0 hover:scale-110 transition-transform cursor-pointer"
+                    className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl flex-shrink-0 hover:scale-110 transition-transform cursor-pointer overflow-hidden"
                     title={`Chatta med ${msg.user}`}
                   >
-                    {msg.profilePicture?.startsWith('data:') ? '😀' : (msg.profilePicture || '😀')}
+                    {msg.profilePicture?.startsWith('data:') ? (
+                      <img src={msg.profilePicture} alt={msg.user} className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{msg.profilePicture || '😀'}</span>
+                    )}
                   </button>
                 )}
                 <div
                   className={`px-4 py-2 rounded-lg relative group ${
                     msg.user_id === user?.id
                       ? 'bg-purple-600 text-white'
-                      : 'bg-slate-700 text-slate-100'
+                      : 'bg-slate-700 dark:bg-slate-700 light:bg-slate-200 text-slate-100 dark:text-slate-100 light:text-slate-900'
                   }`}
                 >
                   <div className="flex items-baseline gap-2 mb-1">
@@ -185,8 +189,12 @@ function GeneralChat() {
                   )}
                 </div>
                 {msg.user_id === user?.id && (
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl flex-shrink-0">
-                    {msg.profilePicture?.startsWith('data:') ? '😀' : (msg.profilePicture || '😀')}
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-2xl flex-shrink-0 overflow-hidden">
+                    {msg.profilePicture?.startsWith('data:') ? (
+                      <img src={msg.profilePicture} alt="You" className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{msg.profilePicture || '😀'}</span>
+                    )}
                   </div>
                 )}
               </div>
@@ -196,14 +204,14 @@ function GeneralChat() {
         <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={sendMessage} className="bg-slate-800 border-t border-slate-700 p-4">
+      <form onSubmit={sendMessage} className="bg-slate-800 dark:bg-slate-800 light:bg-white border-t border-slate-700 dark:border-slate-700 light:border-slate-200 p-4">
         <div className="flex gap-2">
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Skriv ett meddelande..."
-            className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-slate-100 placeholder-slate-400 focus:outline-none focus:border-purple-400"
+            className="flex-1 bg-slate-700 dark:bg-slate-700 light:bg-slate-100 border border-slate-600 dark:border-slate-600 light:border-slate-300 rounded-lg px-4 py-2 text-slate-100 dark:text-slate-100 light:text-slate-900 placeholder-slate-400 dark:placeholder-slate-400 light:placeholder-slate-500 focus:outline-none focus:border-purple-400"
           />
           <button
             type="submit"
