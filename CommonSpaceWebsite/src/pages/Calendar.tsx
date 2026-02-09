@@ -17,7 +17,6 @@ const Calendar = () => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   
@@ -103,7 +102,6 @@ const Calendar = () => {
   };
 
   const openCreateModal = (date: Date) => {
-    setSelectedDate(date);
     setEditingEvent(null);
     setTitle('');
     setDescription('');

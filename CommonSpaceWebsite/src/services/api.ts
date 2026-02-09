@@ -593,10 +593,13 @@ type UserRow = User; // ni har redan User-interface
 export const cleaningRotationApi = {
   // Get all users in rotation order
   getRotation: async (): Promise<CleaningRotationUser[]> => {
-    // Fetch rotation data
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return [];
+
     const { data: rotationData, error: rotationError } = await supabase
       .from('cleaning_rotation')
       .select('*')
+      .eq('flat_code', flatCode)
       .order('order_position', { ascending: true });
 
     if (rotationError) {
@@ -604,51 +607,48 @@ export const cleaningRotationApi = {
       throw rotationError;
     }
 
-    console.log('Raw rotation data:', rotationData);
-
-    // Fetch all users
-    const { data: usersData, error: usersError } = await supabase.from('users').select('*');
+    // Fetch users belonging to this flat
+    const { data: usersData, error: usersError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('flat_code', flatCode);
 
     if (usersError) {
       console.error('Error fetching users:', usersError);
       throw usersError;
     }
 
-    console.log('All users data:', usersData);
-
     const rotationRows = (rotationData || []) as RotationRow[];
     const userRows = (usersData || []) as UserRow[];
 
     const mapped: CleaningRotationUser[] = rotationRows.map((rotationItem) => {
       const user = userRows.find((u) => u.id === rotationItem.user_id);
-
-      console.log(
-        `Rotation item ${rotationItem.id} user_id: ${rotationItem.user_id}, found user:`,
-        user
-      );
-
       return {
         ...rotationItem,
         user,
       };
     });
 
-
-
-    console.log('Mapped rotation data:', mapped);
     return mapped;
   },
 
   // Get current rotation state
   getState: async (): Promise<RotationState | null> => {
-    const { data, error } = await supabase.from('rotation_state').select('*').eq('id', 1).single();
+    const flatCode = getUserFlatCode();
+    if (!flatCode) return null;
+
+    const { data, error } = await supabase
+      .from('rotation_state')
+      .select('*')
+      .eq('flat_code', flatCode)
+      .single();
 
     if (error) {
+      // No rotation state for this flat yet
+      if (error.code === 'PGRST116') return null;
       console.error('Error fetching rotation state:', error);
       throw error;
     }
-
-    console.log('Raw rotation state:', data);
 
     // Fetch the current user separately if there is one
     if (data && data.current_user_id) {
@@ -662,14 +662,10 @@ export const cleaningRotationApi = {
         console.error('Error fetching current user:', userError);
       }
 
-      console.log('Current user data:', userData);
-
-      const mapped = {
+      return {
         ...data,
         current_user: userData || null,
       };
-      console.log('Mapped rotation state:', mapped);
-      return mapped;
     }
 
     return data;
@@ -947,81 +943,6 @@ export interface Profile {
   flat_code?: string;
 }
 
-// Direct Messages API
-export const directMessagesApi = {
-  // Get all DMs for current user with a specific contact
-  getConversation: async (contactId: string): Promise<DirectMessage[]> => {
-    const flatCode = getUserFlatCode();
-    if (!flatCode) return [];
-    
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
-    
-    const { data, error } = await supabase
-      .from('direct_messages')
-      .select('*')
-      .eq('flat_code', flatCode)
-      .or(`and(sender_id.eq.${user.id},receiver_id.eq.${contactId}),and(sender_id.eq.${contactId},receiver_id.eq.${user.id})`)
-      .order('created_at', { ascending: true });
-    
-    if (error) throw error;
-    return data || [];
-  },
-  
-  create: async (message: { receiver_id: string; receiver_username: string; text: string; sender_username: string }): Promise<DirectMessage> => {
-    const flatCode = getUserFlatCode();
-    if (!flatCode) throw new Error('No flat code found');
-    
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
-    
-    const { data, error } = await supabase
-      .from('direct_messages')
-      .insert([{ 
-        ...message, 
-        sender_id: user.id,
-        flat_code: flatCode 
-      }])
-      .select()
-      .single();
-    
-    if (error) throw error;
-    return data;
-  },
-  
-  delete: async (id: number): Promise<void> => {
-    const { error } = await supabase
-      .from('direct_messages')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
-  },
-  
-  // Subscribe to realtime DM changes
-  subscribe: (flatCode: string, currentUserId: string, callback: (message: DirectMessage) => void) => {
-    return supabase
-      .channel('dm-channel')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'direct_messages',
-          filter: `flat_code=eq.${flatCode}`,
-        },
-        (payload) => {
-          const msg = payload.new as DirectMessage;
-          // Only trigger for messages involving current user
-          if (msg.sender_id === currentUserId || msg.receiver_id === currentUserId) {
-            callback(msg);
-          }
-        }
-      )
-      .subscribe();
-  },
-};
-
 // Profiles API - to get flat members as contacts
 export const profilesApi = {
   getFlatMembers: async (): Promise<Profile[]> => {
@@ -1154,5 +1075,114 @@ export const calendarEventsApi = {
         }
       )
       .subscribe();
+  },
+};
+
+// GDPR API - Data Export & Deletion
+export const gdprApi = {
+  // Export all user data
+  exportUserData: async (userId: string) => {
+    try {
+      // Get user profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      // Get user's messages
+      const { data: messages } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('user_id', userId);
+
+      // Get user's calendar events
+      const { data: calendarEvents } = await supabase
+        .from('calendar_events')
+        .select('*')
+        .eq('created_by', userId);
+
+      // Get user's expenses
+      const { data: expenses } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', userId);
+
+      // Get user's bulletin posts
+      const { data: bulletinPosts } = await supabase
+        .from('bulletin_posts')
+        .select('*')
+        .eq('user_id', userId);
+
+      const userData = {
+        exportDate: new Date().toISOString(),
+        profile,
+        messages: messages || [],
+        calendarEvents: calendarEvents || [],
+        expenses: expenses || [],
+        bulletinPosts: bulletinPosts || [],
+      };
+
+      // Create downloadable JSON file
+      const dataStr = JSON.stringify(userData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `my-data-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      return userData;
+    } catch (error) {
+      console.error('Error exporting user data:', error);
+      throw error;
+    }
+  },
+
+  // Delete all user data and account
+  deleteUserAccount: async (userId: string) => {
+    try {
+      // Delete messages
+      await supabase
+        .from('messages')
+        .delete()
+        .eq('user_id', userId);
+
+      // Delete calendar events
+      await supabase
+        .from('calendar_events')
+        .delete()
+        .eq('created_by', userId);
+
+      // Delete expenses
+      await supabase
+        .from('expenses')
+        .delete()
+        .eq('user_id', userId);
+
+      // Delete bulletin posts
+      await supabase
+        .from('bulletin_posts')
+        .delete()
+        .eq('user_id', userId);
+
+      // Delete profile
+      await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
+      // Delete auth user (requires service role key in production)
+      // For now, we just sign out
+      await supabase.auth.signOut();
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting user account:', error);
+      throw error;
+    }
   },
 };

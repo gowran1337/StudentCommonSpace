@@ -1,18 +1,20 @@
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { ThemeProvider } from './contexts/ThemeContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
+import { ToastProvider } from './components/Toast';
+import { ConfirmProvider } from './components/ConfirmDialog';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Calendar from './pages/Calendar';
 import BulletinBoard from './pages/BulletinBoard';
-import DrawBoard from './pages/DrawBoard';
+
 import GeneralChat from './pages/GeneralChat';
-import DirectMessages from './pages/DirectMessages';
 import Profile from './pages/Profile';
 import TaskBoard from './pages/TaskBoard';
 import Expenses from './pages/Expenses';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 
 function AppContent() {
   const location = useLocation();
@@ -46,27 +48,12 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/drawboard"
-          element={
-            <ProtectedRoute>
-              <DrawBoard />
-            </ProtectedRoute>
-          }
-        />
+
         <Route
           path="/generalchat"
           element={
             <ProtectedRoute>
               <GeneralChat />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/directmessages"
-          element={
-            <ProtectedRoute>
-              <DirectMessages />
             </ProtectedRoute>
           }
         />
@@ -94,6 +81,14 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/privacy"
+          element={
+            <ProtectedRoute>
+              <PrivacyPolicy />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </>
   );
@@ -102,11 +97,15 @@ function AppContent() {
 function App() {
   return (
     <Router>
-      <ThemeProvider>
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </ThemeProvider>
+      <ErrorBoundary>
+        <ToastProvider>
+          <ConfirmProvider>
+            <AuthProvider>
+              <AppContent />
+            </AuthProvider>
+          </ConfirmProvider>
+        </ToastProvider>
+      </ErrorBoundary>
     </Router>
   );
 }

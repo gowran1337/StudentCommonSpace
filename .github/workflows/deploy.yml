@@ -37,9 +37,17 @@ jobs:
         working-directory: ./CommonSpaceWebsite
         run: npm ci
 
+      - name: Audit dependencies
+        working-directory: ./CommonSpaceWebsite
+        run: npm audit --audit-level=high || true
+
       - name: Lint
         working-directory: ./CommonSpaceWebsite
         run: npm run lint
+
+      - name: Test
+        working-directory: ./CommonSpaceWebsite
+        run: npm run test
 
       - name: Build
         working-directory: ./CommonSpaceWebsite

@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { messagesApi, type Message as ApiMessage } from '../services/api';
+import { supabase } from '../lib/supabase';
+import { MAX_LENGTHS, sanitizeText } from '../utils/validation';
 
 interface Message {
   id: number;
@@ -14,16 +16,37 @@ interface Message {
 
 function GeneralChat() {
   const { user, flatCode } = useAuth();
-  const profileSettings = localStorage.getItem('profileSettings');
-  const settings = profileSettings ? JSON.parse(profileSettings) : null;
-  const username = settings?.username || user?.email?.split('@')[0] || 'Anonymous';
-  const userProfilePic = settings?.profilePicture || '😀';
+  const [userProfilePic, setUserProfilePic] = useState('😀');
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  // Load user profile from Supabase
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('profile_picture, email')
+          .eq('id', user.id)
+          .single();
+        
+        if (data) {
+          const migratedPic = data.profile_picture?.startsWith('data:') ? '😀' : (data.profile_picture || '😀');
+          setUserProfilePic(migratedPic);
+        }
+      } catch (err) {
+        console.error('Error loading profile:', err);
+      }
+    };
+    
+    loadUserProfile();
+  }, [user]);
 
   // Load messages from Supabase
   useEffect(() => {
@@ -45,8 +68,17 @@ function GeneralChat() {
       }
     };
 
-    loadMessages();
-  }, []);
+    if (user && flatCode) {
+      loadMessages();
+    } else {
+      setLoading(false);
+    }
+
+    // Cleanup: Clear messages when component unmounts or user changes
+    return () => {
+      setMessages([]);
+    };
+  }, [user, flatCode]);
 
   // Subscribe to realtime updates
   useEffect(() => {
@@ -77,22 +109,34 @@ function GeneralChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const sendMessage = async (e: React.FormEvent) => {
+  const [sending, setSending] = useState(false);
+
+  const sendMessage = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !user) return;
+    if (sending) return; // Rate limit: prevent rapid submissions
+    const trimmed = sanitizeText(newMessage, MAX_LENGTHS.chatMessage);
+    if (!trimmed || !user) return;
+
+    setSending(true);
+
+    // Always use the email from the authenticated user
+    const currentUsername = user.email?.split('@')[0] || 'Anonymous';
 
     try {
       await messagesApi.create({
-        username: username,
-        text: newMessage.trim(),
+        username: currentUsername,
+        text: trimmed,
         profile_picture: userProfilePic,
         user_id: user.id
       });
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
+    } finally {
+      // Allow next message after 500ms
+      setTimeout(() => setSending(false), 500);
     }
-  };
+  }, [newMessage, user, userProfilePic, sending]);
 
   const deleteMessage = async (messageId: number) => {
     try {
@@ -114,6 +158,34 @@ function GeneralChat() {
     return (
       <div className="flex items-center justify-center h-screen bg-slate-900">
         <p className="text-white">Laddar meddelanden...</p>
+      </div>
+    );
+  }
+
+  // Show warning if no flatCode
+  if (!flatCode) {
+    return (
+      <div className="flex flex-col h-screen bg-slate-900">
+        <div className="bg-slate-800 border-b border-slate-700 p-4">
+          <h1 className="text-2xl font-bold text-purple-400">💬 General Chat</h1>
+          <p className="text-slate-400 text-sm">Chatta med alla i utrymmet</p>
+        </div>
+        
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="bg-yellow-900/30 border-2 border-yellow-500 rounded-lg p-8 max-w-md text-center">
+            <div className="text-6xl mb-4">⚠️</div>
+            <h2 className="text-2xl font-bold text-yellow-400 mb-4">Lägenhetskod saknas</h2>
+            <p className="text-slate-300 mb-6">
+              Du måste ange en lägenhetskod i din profil för att kunna chatta med dina rumskamrater.
+            </p>
+            <button
+              onClick={() => navigate('/profile')}
+              className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold transition-colors"
+            >
+              Gå till Profil
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

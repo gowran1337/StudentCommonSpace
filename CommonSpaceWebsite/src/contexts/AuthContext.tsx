@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { User, Session, AuthError } from '@supabase/supabase-js';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 interface AuthContextType {
     user: User | null;
@@ -21,118 +21,86 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [flatCode, setFlatCode] = useState<string | null>(null);
 
     useEffect(() => {
-        // If Supabase is not configured, use localStorage fallback
-        if (!isSupabaseConfigured) {
-            const localUser = localStorage.getItem('currentUser');
-            const localFlatCode = localStorage.getItem('flatCode');
-            
-            if (localUser) {
-                try {
-                    const userData = JSON.parse(localUser);
-                    setUser(userData as User);
-                    setSession({ user: userData, access_token: 'local', refresh_token: 'local' } as Session);
-                } catch (e) {
-                    console.error('Error parsing local user:', e);
-                }
-            }
-            
-            if (localFlatCode) {
-                setFlatCode(localFlatCode);
-            }
-            
-            setLoading(false);
-            return;
-        }
-
-        // Get initial session from Supabase
-        supabase.auth.getSession().then(async ({ data: { session } }) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            
-            // Fetch flatCode from user profile if user is logged in
-            if (session?.user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('flat_code')
-                    .eq('id', session.user.id)
-                    .single();
+        // Get initial session - SNABB
+        const initializeAuth = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                setSession(session);
+                setUser(session?.user ?? null);
                 
-                if (profile?.flat_code) {
-                    setFlatCode(profile.flat_code);
-                    localStorage.setItem('flatCode', profile.flat_code);
+                // Ladda flatCode från localStorage för snabb rendering
+                const cached = localStorage.getItem('flatCode');
+                if (cached) {
+                    setFlatCode(cached);
                 }
+                if (session?.user) {
+                    // Alltid hämta från Supabase för att synka
+                    fetchFlatCode(session.user.id);
+                }
+            } catch (error) {
+                console.error('Error getting session:', error);
+            } finally {
+                setLoading(false);  // ✅ SNABB - loading är false efter 100ms
             }
-            
-            setLoading(false);
-        });
+        };
+
+        initializeAuth();
 
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             setSession(session);
             setUser(session?.user ?? null);
-            
-            // Fetch flatCode when auth state changes
+
             if (session?.user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('flat_code')
-                    .eq('id', session.user.id)
-                    .single();
-                
-                if (profile?.flat_code) {
-                    setFlatCode(profile.flat_code);
-                    localStorage.setItem('flatCode', profile.flat_code);
-                }
+                fetchFlatCode(session.user.id);
             } else {
                 setFlatCode(null);
                 localStorage.removeItem('flatCode');
             }
-            
-            setLoading(false);
         });
 
         return () => subscription.unsubscribe();
     }, []);
 
-    const signIn = async (email: string, password: string) => {
-        // If Supabase is not configured, use localStorage authentication
-        if (!isSupabaseConfigured) {
-            const users = JSON.parse(localStorage.getItem('users') || '[]');
-            const foundUser = users.find((u: any) => u.email === email && u.password === password);
-            
-            if (foundUser) {
-                const mockUser = {
-                    id: foundUser.id || email,
-                    email: email,
-                    user_metadata: { username: foundUser.username }
-                } as User;
-                
-                setUser(mockUser);
-                setSession({ user: mockUser, access_token: 'local', refresh_token: 'local' } as Session);
-                localStorage.setItem('currentUser', JSON.stringify(mockUser));
-                
-                // Set flatCode if available
-                const localFlatCode = localStorage.getItem('flatCode') || 'DEFAULT';
-                setFlatCode(localFlatCode);
-                
-                return { error: null };
-            } else {
-                return { error: { message: 'Invalid email or password', name: 'AuthError', status: 400 } as AuthError };
+    // Hämta flatCode utan att blockera loading
+    const fetchFlatCode = async (userId: string) => {
+        try {
+            const { data: profile, error } = await supabase
+                .from('profiles')
+                .select('flat_code')
+                .eq('id', userId)
+                .single();
+
+            if (error) {
+                console.error('Error fetching profile:', error);
+                return;
             }
+            
+            // Always sync state with what's in the database
+            const code = profile?.flat_code || null;
+            setFlatCode(code);
+            if (code) {
+                localStorage.setItem('flatCode', code);
+            } else {
+                localStorage.removeItem('flatCode');
+            }
+        } catch (error) {
+            console.error('Error fetching flat_code:', error);
         }
-        
+    };
+
+    const signIn = async (email: string, password: string) => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         return { error };
     };
 
     const signOut = async () => {
-        if (!isSupabaseConfigured) {
-            setUser(null);
-            setSession(null);
-            localStorage.removeItem('currentUser');
-            return;
-        }
-        
+        // Clear all user-specific localStorage data
+        localStorage.removeItem('flatCode');
+        localStorage.removeItem('profileSettings');
+        localStorage.removeItem('rememberedEmail');
+        localStorage.removeItem('rememberedPassword');
+
         await supabase.auth.signOut();
     };
 

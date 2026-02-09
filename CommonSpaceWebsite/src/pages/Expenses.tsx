@@ -1,14 +1,28 @@
 import { useState, useEffect } from 'react';
-import { expensesApi, settlementsApi, usersApi, type Expense, type Settlement, type User } from '../services/api';
+import { expensesApi, settlementsApi, type Expense, type Settlement } from '../services/api';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmDialog';
+import { MAX_LENGTHS, sanitizeText, isValidAmount } from '../utils/validation';
 
 interface Balance {
   [user: string]: number;
 }
 
+interface FlatMember {
+  id: string;
+  email: string;
+  profile_picture: string;
+}
+
 const Expenses = () => {
+  const { user, flatCode } = useAuth();
+  const { showToast } = useToast();
+  const confirm = useConfirm();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [flatMembers, setFlatMembers] = useState<FlatMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [showSettlement, setShowSettlement] = useState(false);
@@ -23,19 +37,33 @@ const Expenses = () => {
   const [settlementAmount, setSettlementAmount] = useState('');
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (user && flatCode) {
+      loadData();
+    } else {
+      setLoading(false);
+    }
+  }, [user, flatCode]);
 
   const loadData = async () => {
+    if (!flatCode) return;
+    
     try {
-      const [expensesData, settlementsData, usersData] = await Promise.all([
+      // Load flat members
+      const { data: members } = await supabase
+        .from('profiles')
+        .select('id, email, profile_picture')
+        .eq('flat_code', flatCode);
+      
+      if (members) {
+        setFlatMembers(members);
+      }
+
+      const [expensesData, settlementsData] = await Promise.all([
         expensesApi.getAll(),
         settlementsApi.getAll(),
-        usersApi.getAll(),
       ]);
       setExpenses(expensesData);
       setSettlements(settlementsData);
-      setUsers(usersData);
     } catch (error) {
       console.error('Error loading expenses:', error);
     } finally {
@@ -45,7 +73,7 @@ const Expenses = () => {
 
   const calculateBalances = (): Balance => {
     const balances: Balance = {};
-    users.forEach(u => balances[u.email] = 0);
+    flatMembers.forEach(m => balances[m.email] = 0);
 
     // Process expenses
     expenses.forEach(expense => {
@@ -94,13 +122,17 @@ const Expenses = () => {
 
   const handleAddExpense = async () => {
     if (!description || !amount || !paidBy || splitBetween.length === 0) {
-      alert('Please fill in all fields');
+      showToast('Fyll i alla fält', 'warning');
+      return;
+    }
+    if (!isValidAmount(amount)) {
+      showToast('Ange ett giltigt belopp (positivt tal)', 'warning');
       return;
     }
 
     try {
       const newExpense = {
-        description,
+        description: sanitizeText(description, MAX_LENGTHS.expenseDescription),
         amount: parseFloat(amount),
         paid_by: paidBy,
         split_between: splitBetween,
@@ -118,13 +150,17 @@ const Expenses = () => {
       setShowAddExpense(false);
     } catch (error) {
       console.error('Error adding expense:', error);
-      alert('Failed to add expense');
+      showToast('Kunde inte lägga till utgift', 'error');
     }
   };
 
   const handleSettlement = async () => {
     if (!settlementFrom || !settlementTo || !settlementAmount) {
-      alert('Please fill in all fields');
+      showToast('Fyll i alla fält', 'warning');
+      return;
+    }
+    if (!isValidAmount(settlementAmount)) {
+      showToast('Ange ett giltigt belopp (positivt tal)', 'warning');
       return;
     }
 
@@ -146,12 +182,18 @@ const Expenses = () => {
       setShowSettlement(false);
     } catch (error) {
       console.error('Error recording settlement:', error);
-      alert('Failed to record settlement');
+      showToast('Kunde inte registrera betalning', 'error');
     }
   };
 
   const handleDeleteExpense = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this expense?')) return;
+    const ok = await confirm({
+      title: 'Radera utgift',
+      message: 'Är du säker på att du vill radera denna utgift?',
+      confirmText: 'Radera',
+      danger: true,
+    });
+    if (!ok) return;
     
     try {
       await expensesApi.delete(id);
@@ -176,6 +218,26 @@ const Expenses = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-800 to-slate-900 p-6 flex items-center justify-center">
         <h1 className="text-4xl font-bold text-white">Loading...</h1>
+      </div>
+    );
+  }
+
+  if (!flatCode) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-800 to-slate-900 p-6 flex items-center justify-center">
+        <div className="bg-yellow-900/30 border-2 border-yellow-500 rounded-lg p-8 max-w-md text-center">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-yellow-400 mb-4">Lägenhetskod saknas</h2>
+          <p className="text-slate-300 mb-6">
+            Du måste ange en lägenhetskod i din profil för att dela utgifter med dina rumskamrater.
+          </p>
+          <a
+            href="/profile"
+            className="inline-block px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold transition-colors"
+          >
+            Gå till Profil
+          </a>
+        </div>
       </div>
     );
   }
@@ -225,15 +287,15 @@ const Expenses = () => {
         <div className="bg-slate-700 rounded-lg p-6 mb-6 shadow-lg">
           <h2 className="text-2xl font-bold text-white mb-4">Individual Balances</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {users.map(u => (
-              <div key={u.id} className="bg-slate-800 rounded-lg p-4 text-center">
-                <p className="text-slate-300 mb-2">{u.full_name || u.email}</p>
+            {flatMembers.map(m => (
+              <div key={m.id} className="bg-slate-800 rounded-lg p-4 text-center">
+                <p className="text-slate-300 mb-2">{m.email.split('@')[0]}</p>
                 <p className={`text-2xl font-bold ${
-                  balances[u.email] > 0.01 ? 'text-green-400' : 
-                  balances[u.email] < -0.01 ? 'text-red-400' : 
+                  balances[m.email] > 0.01 ? 'text-green-400' : 
+                  balances[m.email] < -0.01 ? 'text-red-400' : 
                   'text-slate-400'
                 }`}>
-                  {balances[u.email] > 0 ? '+' : ''}{balances[u.email].toFixed(2)} kr
+                  {balances[m.email] > 0 ? '+' : ''}{balances[m.email].toFixed(2)} kr
                 </p>
               </div>
             ))}
@@ -315,8 +377,8 @@ const Expenses = () => {
                     className="w-full px-4 py-2 border border-slate-600 rounded bg-slate-700 text-white"
                   >
                     <option value="">Select person</option>
-                    {users.map(u => (
-                      <option key={u.id} value={u.email}>{u.full_name || u.email}</option>
+                    {flatMembers.map(m => (
+                      <option key={m.id} value={m.email}>{m.email.split('@')[0]}</option>
                     ))}
                   </select>
                 </div>
@@ -324,17 +386,17 @@ const Expenses = () => {
                 <div>
                   <label className="block text-slate-300 mb-2">Split between</label>
                   <div className="grid grid-cols-2 gap-2">
-                    {users.map(u => (
+                    {flatMembers.map(m => (
                       <button
-                        key={u.id}
-                        onClick={() => toggleSplitPerson(u.email)}
+                        key={m.id}
+                        onClick={() => toggleSplitPerson(m.email)}
                         className={`px-4 py-2 rounded transition ${
-                          splitBetween.includes(u.email)
+                          splitBetween.includes(m.email)
                             ? 'bg-green-600 text-white'
                             : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                         }`}
                       >
-                        {u.full_name || u.email}
+                        {m.email.split('@')[0]}
                       </button>
                     ))}
                   </div>
@@ -385,8 +447,8 @@ const Expenses = () => {
                     className="w-full px-4 py-2 border border-slate-600 rounded bg-slate-700 text-white"
                   >
                     <option value="">Select person</option>
-                    {users.map(u => (
-                      <option key={u.id} value={u.email}>{u.full_name || u.email}</option>
+                    {flatMembers.map(m => (
+                      <option key={m.id} value={m.email}>{m.email.split('@')[0]}</option>
                     ))}
                   </select>
                 </div>
@@ -399,8 +461,8 @@ const Expenses = () => {
                     className="w-full px-4 py-2 border border-slate-600 rounded bg-slate-700 text-white"
                   >
                     <option value="">Select person</option>
-                    {users.map(u => (
-                      <option key={u.id} value={u.email}>{u.full_name || u.email}</option>
+                    {flatMembers.map(m => (
+                      <option key={m.id} value={m.email}>{m.email.split('@')[0]}</option>
                     ))}
                   </select>
                 </div>
