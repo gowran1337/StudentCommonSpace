@@ -1,7 +1,15 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * @see https://playwright.dev/docs/test-configuration
+ * Read environment variables from file.
+ * https://github.com/motdotla/dotenv
+ */
+// import dotenv from 'dotenv';
+// import path from 'path';
+// dotenv.config({ path: path.resolve(__dirname, '.env') });
+
+/**
+ * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
   testDir: './tests/e2e',
@@ -17,14 +25,11 @@ export default defineConfig({
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
+    /* Base URL to use in actions like `await page.goto('')`. */
     baseURL: 'http://localhost:5173',
+
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
-    /* Take screenshot only when a test fails */
-    screenshot: 'only-on-failure',
-    /* Record video only when a test fails */
-    video: 'retain-on-failure',
   },
 
   /* Configure projects for major browsers */
@@ -45,14 +50,14 @@ export default defineConfig({
     },
 
     /* Test against mobile viewports. */
-    {
-      name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
-    },
-    {
-      name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
-    },
+    // {
+    //   name: 'Mobile Chrome',
+    //   use: { ...devices['Pixel 5'] },
+    // },
+    // {
+    //   name: 'Mobile Safari',
+    //   use: { ...devices['iPhone 12'] },
+    // },
 
     /* Test against branded browsers. */
     // {

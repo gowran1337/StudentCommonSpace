@@ -17,7 +17,8 @@ export const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, 
 /**
  * Hjälpfunktion för att rendera komponenter med providers
  */
-export const renderWithProviders = (component: React.ReactElement) => {
+export const renderWithProviders = () => {
   // Implementera rendering med nödvändiga providers
   // (AuthContext, Router, etc.)
+  // Parameter tas bort tills funktionen implementeras
 };
