@@ -37,7 +37,7 @@ const Login = () => {
                     localStorage.removeItem('rememberedEmail');
                 }
                 localStorage.removeItem('rememberedPassword'); // Clean up legacy
-                navigate('/profile');
+                navigate('/calendar'); // Navigate to calendar after successful login
             }
         } catch {
             setError('Ett oväntat fel uppstod');
