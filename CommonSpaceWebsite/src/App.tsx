@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -98,13 +99,15 @@ function App() {
   return (
     <Router>
       <ErrorBoundary>
-        <ToastProvider>
-          <ConfirmProvider>
-            <AuthProvider>
-              <AppContent />
-            </AuthProvider>
-          </ConfirmProvider>
-        </ToastProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            <ConfirmProvider>
+              <AuthProvider>
+                <AppContent />
+              </AuthProvider>
+            </ConfirmProvider>
+          </ToastProvider>
+        </ThemeProvider>
       </ErrorBoundary>
     </Router>
   );
