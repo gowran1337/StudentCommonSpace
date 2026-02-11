@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { expensesApi, settlementsApi, type Expense, type Settlement } from '../services/api';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -36,15 +36,7 @@ const Expenses = () => {
   const [settlementTo, setSettlementTo] = useState('');
   const [settlementAmount, setSettlementAmount] = useState('');
 
-  useEffect(() => {
-    if (user && flatCode) {
-      loadData();
-    } else {
-      setLoading(false);
-    }
-  }, [user, flatCode]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!flatCode) return;
     
     try {
@@ -69,7 +61,15 @@ const Expenses = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [flatCode]);
+
+  useEffect(() => {
+    if (user && flatCode) {
+      loadData();
+    } else {
+      setLoading(false);
+    }
+  }, [user, flatCode, loadData]);
 
   const calculateBalances = (): Balance => {
     const balances: Balance = {};

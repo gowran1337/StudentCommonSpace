@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { gdprApi } from '../services/api';
@@ -213,7 +213,7 @@ function Profile() {
   }, [user]);
 
   // Function to load flat members
-  const loadFlatMembers = async () => {
+  const loadFlatMembers = useCallback(async () => {
     if (!settings.flatCode) return;
 
     console.log('Loading flat members for code:', settings.flatCode);
@@ -229,7 +229,7 @@ function Profile() {
     } else if (error) {
       console.error('Error loading flat members:', error);
     }
-  };
+  }, [settings.flatCode]);
 
   // Real-time subscription for flat members updates
   useEffect(() => {
@@ -260,7 +260,7 @@ function Profile() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, settings.flatCode]);
+  }, [user, settings.flatCode, loadFlatMembers]);
 
   useEffect(() => {
     if (loading) return; // Don't save while loading
@@ -293,7 +293,7 @@ function Profile() {
     };
     
     saveToSupabase();
-  }, [settings.profilePicture, settings.theme, loading, user]);
+  }, [settings.profilePicture, settings.theme, settings.flatCode, loading, user]);
 
   const currentTheme = themes[settings.theme];
 
