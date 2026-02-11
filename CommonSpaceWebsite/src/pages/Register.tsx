@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useToast } from '../components/Toast';
 
 const defaultProfilePics = ['😀', '😎', '🤓', '🤖', '👽', '🦄', '🐱', '🐶', '🐼', '🦊'];
@@ -49,39 +49,61 @@ function Register() {
       return;
     }
 
-    // Generate or validate flat code
-    let finalFlatCode = flatCode.trim().toUpperCase();
-    if (isCreatingNewFlat) {
-      // Generate a new unique code
-      finalFlatCode = generateFlatCode();
-      
-      // Check if code already exists (rare collision)
-      let isUnique = false;
-      let attempts = 0;
-      while (!isUnique && attempts < 5) {
-        const { data: existing } = await supabase
-          .from('profiles')
-          .select('flat_code')
-          .eq('flat_code', finalFlatCode)
-          .limit(1);
+    try {
+      // Mock registration for development when Supabase is not configured
+      if (!isSupabaseConfigured) {
+        console.log('🔧 Mock registration - Supabase not configured');
         
-        if (!existing || existing.length === 0) {
-          isUnique = true;
+        // Simulate successful registration
+        const finalFlatCode = isCreatingNewFlat ? generateFlatCode() : flatCode.trim().toUpperCase();
+        
+        if (isCreatingNewFlat) {
+          showToast(`Lägenhet skapad! Din kod är: ${finalFlatCode}`, 'success');
         } else {
-          finalFlatCode = generateFlatCode();
-          attempts++;
+          showToast('Registrering lyckades! Du är nu med i lägenheten', 'success');
         }
-      }
-    } else {
-      // Joining existing flat - validate code exists
-      if (!finalFlatCode || finalFlatCode.length < 3) {
-        setError('Ange en giltig lägenhetskod');
+        
+        // Auto login after registration
+        setTimeout(() => {
+          navigate('/');
+        }, 2000);
+        
         setLoading(false);
         return;
       }
-    }
+      
+      // Generate or validate flat code for real Supabase usage
+      let finalFlatCode = flatCode.trim().toUpperCase();
+      if (isCreatingNewFlat) {
+        // Generate a new unique code
+        finalFlatCode = generateFlatCode();
+        
+        // Check if code already exists (rare collision)
+        let isUnique = false;
+        let attempts = 0;
+        while (!isUnique && attempts < 5) {
+          const { data: existing } = await supabase
+            .from('profiles')
+            .select('flat_code')
+            .eq('flat_code', finalFlatCode)
+            .limit(1);
+          
+          if (!existing || existing.length === 0) {
+            isUnique = true;
+          } else {
+            finalFlatCode = generateFlatCode();
+            attempts++;
+          }
+        }
+      } else {
+        // Joining existing flat - validate code exists
+        if (!finalFlatCode || finalFlatCode.length < 3) {
+          setError('Ange en giltig lägenhetskod');
+          setLoading(false);
+          return;
+        }
+      }
 
-    try {
       // Sign up with Supabase and include flat_code in metadata
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,

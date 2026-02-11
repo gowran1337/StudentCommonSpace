@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/theme-context';
+import { useTheme } from '../contexts/ThemeContext';
 
 const Navbar = () => {
     const { signOut } = useAuth();

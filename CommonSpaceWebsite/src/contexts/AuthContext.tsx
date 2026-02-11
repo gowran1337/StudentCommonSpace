@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { User, Session, AuthError } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 interface AuthContextType {
     user: User | null;
@@ -24,6 +24,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Get initial session - SNABB
         const initializeAuth = async () => {
             try {
+                if (!isSupabaseConfigured) {
+                    // Mock mode - no session to restore
+                    console.log('🔧 Development Mode: Running without Supabase backend');
+                    setLoading(false);
+                    return;
+                }
+                
                 const { data: { session } } = await supabase.auth.getSession();
                 setSession(session);
                 setUser(session?.user ?? null);
@@ -90,6 +97,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const signIn = async (email: string, password: string) => {
+        if (!isSupabaseConfigured) {
+            // Mock login for development when Supabase is not configured
+            console.log('🔧 Mock login - Supabase not configured. Logging in as mock user.');
+            
+            // Simulate successful login with mock user
+            const mockUser = {
+                id: 'mock-user-123',
+                email: email,
+                app_metadata: {},
+                user_metadata: { name: 'Test User' },
+                aud: 'authenticated',
+                created_at: new Date().toISOString(),
+            } as User;
+            
+            const mockSession = {
+                access_token: 'mock-token',
+                refresh_token: 'mock-refresh',
+                expires_in: 3600,
+                expires_at: Date.now() + 3600000,
+                token_type: 'bearer',
+                user: mockUser,
+            } as Session;
+            
+            setUser(mockUser);
+            setSession(mockSession);
+            setFlatCode('MOCK123');
+            localStorage.setItem('flatCode', 'MOCK123');
+            
+            return { error: null };
+        }
+        
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         return { error };
     };
@@ -100,6 +138,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('profileSettings');
         localStorage.removeItem('rememberedEmail');
         localStorage.removeItem('rememberedPassword');
+
+        if (!isSupabaseConfigured) {
+            // Mock logout for development
+            console.log('🔧 Mock logout - Supabase not configured');
+            setUser(null);
+            setSession(null);
+            setFlatCode(null);
+            return;
+        }
 
         await supabase.auth.signOut();
     };
