@@ -26,5 +26,13 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: [],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/cypress/**',
+      '**/.{idea,git,cache,output,temp}/**',
+      '**/e2e/**', // Exclude root e2e directory
+      '**/tests/e2e/**', // Exclude Playwright e2e tests
+    ],
   },
 })
