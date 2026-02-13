@@ -10,6 +10,10 @@
 
 Detta dokument presenterar en systematisk genomgång av säkerhetsrisker och attack-vektorer som är relevanta för StudentCommonSpace-applikationen. Målet är att visa att vi har undersökt potentiella hot på ett uttömmande sätt, samt dokumentera vilka skydd som finns implementerade och vilka accepterade risker som kvarstår i MVP-fasen.
 
+### Relaterad dokumentation
+
+- Se `FLAT_CODE_SYSTEM.md` för teknisk beskrivning av multi-tenant-modellen med `flat_code`, cache-hantering och RLS-principer.
+
 ---
 
 ## Översikt: Vår Säkerhetsmodell
