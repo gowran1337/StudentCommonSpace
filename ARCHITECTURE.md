@@ -627,5 +627,3 @@ const debouncedUpdate = useMemo(
 
 ---
 
-**Författare:** StudentCommonSpace Team  
-**Senast uppdaterad:** 2026-02-13
